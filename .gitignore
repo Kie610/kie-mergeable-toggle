@@ -1,0 +1,9 @@
+# Unity / IDE plumbing. Package content (including .meta files) is committed.
+*.csproj
+*.sln
+*.user
+.vs/
+.idea/
+obj/
+Thumbs.db
+.DS_Store

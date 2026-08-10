@@ -1,0 +1,18 @@
+{
+  "name": "com.kie.mergeable-toggle",
+  "displayName": "Mergeable Toggle",
+  "version": "0.1.0-beta.1",
+  "description": "Converts existing hand-written animator mesh toggles into NaNimation (bone scale NaN) at build time and normalizes renderer settings, so Avatar Optimizer can merge the toggled meshes while keeping the original toggle behavior.",
+  "unity": "2022.3",
+  "license": "MIT",
+  "author": {
+    "name": "Kie",
+    "email": "kito0524s@gmail.com",
+    "url": "https://github.com/Kie610"
+  },
+  "changelogUrl": "https://github.com/Kie610/mergeable-toggle/blob/main/CHANGELOG.md",
+  "vpmDependencies": {
+    "com.vrchat.avatars": "^3.7.0",
+    "nadena.dev.ndmf": "^1.14.0"
+  }
+}
