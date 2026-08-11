@@ -16,9 +16,18 @@ namespace Kie.MergeableToggle.Editor
 
         protected override void Configure()
         {
-            // 手書きレイヤーの状態のまま処理したいので MA(リアクティブ生成)より前に走らせる
+            // MA より後に走らせる。MA Merge Animator が合流させたコントローラも、MA が
+            // リアクティブに生成したトグルも、合流後の仮想アニメーター上では手書きトグルと
+            // 区別が付かないので、そのまま候補になる。
+            //
+            // 以前は「手書きレイヤーの状態のまま処理したい」として MA より前に走らせていたが、
+            // それだと Merge Animator 経由のトグルが一切見えず、そういう構成のアバターで
+            // 何も変換されなかった(実測: FX を Merge Animator へ移すと検出 9 → 0)。
+            //
+            // 変換本体は AnimationIndex 経由で候補抽出とカーブ書き換えを行い、descriptor を
+            // 直接見ていないので、順序を後ろへ動かしても手を入れる箇所は無い。
             InPhase(BuildPhase.Transforming)
-                .BeforePlugin("nadena.dev.modular-avatar")
+                .AfterPlugin("nadena.dev.modular-avatar")
                 .WithRequiredExtension(typeof(AnimatorServicesContext), seq =>
                     seq.Run("Convert mesh toggles", ToggleConverter.Convert));
         }
@@ -80,8 +89,11 @@ namespace Kie.MergeableToggle.Editor
                     targets.Add(candidate);
                 }
 
-                Debug.Log($"[MergeableToggle] converting {targets.Count} toggles " +
-                          $"({targets.Count(t => component.MethodFor(t.Path) == HideMethod.NaNimation)} via NaNimation)");
+                // インスペクタの一覧はビルド時より狭い(MA がリアクティブに生成するトグルは
+                // 編集時には存在しない)。突合できるよう、実際に変換したものを機構つきで出す。
+                Debug.Log($"[MergeableToggle] converting {targets.Count} toggles\n" +
+                          string.Join("\n", targets.Select(
+                              t => $"  {component.MethodFor(t.Path)}\t{t.Path}")));
                 if (targets.Count == 0) return;
 
                 // 正規化用の共通 rootBone と合併バウンズ(変換前の値で計算)

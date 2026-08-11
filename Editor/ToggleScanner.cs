@@ -39,15 +39,17 @@ namespace Kie.MergeableToggle.Editor
             var root = descriptor.transform;
             var pathToClips = new Dictionary<string, List<string>>();
 
-            foreach (var clip in EnumerateClips(descriptor))
+            foreach (var (clip, prefix) in EnumerateClips(descriptor))
             {
                 foreach (var binding in AnimationUtility.GetCurveBindings(clip))
                 {
                     if (binding.type != typeof(GameObject) || binding.propertyName != "m_IsActive") continue;
-                    if (string.IsNullOrEmpty(binding.path)) continue; // ルート自身は対象外
 
-                    if (!pathToClips.TryGetValue(binding.path, out var clips))
-                        pathToClips[binding.path] = clips = new List<string>();
+                    var path = prefix + binding.path;
+                    if (string.IsNullOrEmpty(path)) continue; // ルート自身は対象外
+
+                    if (!pathToClips.TryGetValue(path, out var clips))
+                        pathToClips[path] = clips = new List<string>();
                     if (!clips.Contains(clip.name)) clips.Add(clip.name);
                 }
             }
@@ -108,9 +110,21 @@ namespace Kie.MergeableToggle.Editor
             return result;
         }
 
-        private static IEnumerable<AnimationClip> EnumerateClips(VRCAvatarDescriptor descriptor)
+        /// <summary>
+        /// 編集時に見えるクリップと、そのカーブパスに前置すべき接頭辞を返す。
+        ///
+        /// ビルド時は MA より後に走るので合流後のアニメーターが全部見えるが、編集時には
+        /// まだ合流していない。ディスクリプタの Playable Layer だけを見ると
+        /// MA Merge Animator 経由のトグルが一覧に出ないので、ここでも辿る。
+        ///
+        /// MA がリアクティブに生成するトグル (Object Toggle 等) は編集時には存在しないため
+        /// 一覧に出せない。乖離の向きは常に「ビルド ⊇ 表示」なので、
+        /// 「表示されるのに変換されない」は起きない。
+        /// </summary>
+        private static IEnumerable<(AnimationClip clip, string prefix)> EnumerateClips(
+            VRCAvatarDescriptor descriptor)
         {
-            var seen = new HashSet<AnimationClip>();
+            var seen = new HashSet<(AnimationClip, string)>();
             var layers = (descriptor.baseAnimationLayers ?? System.Array.Empty<VRCAvatarDescriptor.CustomAnimLayer>())
                 .Concat(descriptor.specialAnimationLayers ?? System.Array.Empty<VRCAvatarDescriptor.CustomAnimLayer>());
 
@@ -118,10 +132,30 @@ namespace Kie.MergeableToggle.Editor
             {
                 if (layer.isDefault || layer.animatorController == null) continue;
                 foreach (var clip in layer.animatorController.animationClips)
-                {
-                    if (clip != null && seen.Add(clip)) yield return clip;
-                }
+                    if (clip != null && seen.Add((clip, ""))) yield return (clip, "");
             }
+
+#if MT_MA_PRESENT
+            foreach (var merge in descriptor
+                         .GetComponentsInChildren<nadena.dev.modular_avatar.core.ModularAvatarMergeAnimator>(true))
+            {
+                if (merge == null || !merge.enabled || merge.animator == null) continue;
+
+                // Relative はコンポーネント(または relativePathRoot)基準のパスなので、
+                // アバタールート相対へ直してから照合する。
+                var prefix = "";
+                if (merge.pathMode == nadena.dev.modular_avatar.core.MergeAnimatorPathMode.Relative)
+                {
+                    var basis = merge.relativePathRoot?.Get(merge) ?? merge.gameObject;
+                    var basisPath = AnimationUtility.CalculateTransformPath(
+                        basis.transform, descriptor.transform);
+                    if (!string.IsNullOrEmpty(basisPath)) prefix = basisPath + "/";
+                }
+
+                foreach (var clip in merge.animator.animationClips)
+                    if (clip != null && seen.Add((clip, prefix))) yield return (clip, prefix);
+            }
+#endif
         }
 
         /// <summary>

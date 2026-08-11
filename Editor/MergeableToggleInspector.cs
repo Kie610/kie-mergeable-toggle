@@ -351,6 +351,10 @@ namespace Kie.MergeableToggle.Editor
             var nan = included.Count(c => _component.MethodFor(c.Path) == HideMethod.NaNimation);
             if (nan > 0) lines.Add($"NaNimation {nan} 件のぶんだけボーン数が増えます。");
 
+            lines.Add("Modular Avatar がリアクティブに生成するトグル(MA Object Toggle など)は\n" +
+                      "ビルド時に追加で変換されますが、まだ存在しないのでこの一覧には出ません。\n" +
+                      "実際に変換されたものはビルドログに出力されます。");
+
             var tiles = included.Count(c => _component.MethodFor(c.Path) == HideMethod.UVTileDiscard);
             if (tiles > UVTileDiscardHider.UsableTileCount)
             {

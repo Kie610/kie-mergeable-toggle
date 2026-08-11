@@ -6,7 +6,8 @@
         "nadena.dev.ndmf",
         "nadena.dev.ndmf.runtime",
         "VRC.SDK3A",
-        "VRC.SDKBase"
+        "VRC.SDKBase",
+        "nadena.dev.modular-avatar.core"
     ],
     "includePlatforms": [
         "Editor"
@@ -17,6 +18,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "nadena.dev.modular-avatar",
+            "expression": "1.8.0",
+            "define": "MT_MA_PRESENT"
+        }
+    ],
     "noEngineReferences": false
 }

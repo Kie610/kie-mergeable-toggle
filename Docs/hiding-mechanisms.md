@@ -24,6 +24,42 @@ AAO の自動メッシュ統合 (`Editor/Processors/TraceAndOptimize/AutoMergeSk
 
 ## 共通層がやること
 
+### 実行順: Modular Avatar より後
+
+`InPhase(BuildPhase.Transforming).AfterPlugin("nadena.dev.modular-avatar")`。
+
+MA Merge Animator が合流させたコントローラも、MA がリアクティブに生成したトグルも、
+合流後の仮想アニメーター上では手書きトグルと区別が付かないので、そのまま候補になる。
+
+0.1.0-alpha までは「手書きレイヤーの状態のまま処理したい」として MA より**前**に
+走らせていたが、それだと Merge Animator 経由のトグルが一切見えず、そういう構成の
+アバターで何も変換されなかった。実測 (Shinano Variant、FX をどこへ置くか):
+
+| 構成 | 検出件数 |
+|---|---|
+| ディスクリプタの FX レイヤー | 9 |
+| Merge Animator (Absolute) | 0 → **9** |
+| Merge Animator (Relative、ルート直下) | 0 → **9** |
+| Merge Animator (Relative、子オブジェクト、relativePathRoot=ルート) | 0 → **9** |
+
+変換本体は `AnimationIndex` 経由で候補抽出とカーブ書き換えを行い、descriptor を直接
+見ていないので、順序を後ろへ動かしても手を入れる箇所は無かった (変更は `Configure()`
+の1語)。なお VRC Parameter Compressor は `BuildPhase.Optimizing` なので無関係。
+
+### 編集時と ビルド時の乖離
+
+インスペクタの一覧は編集時に作るので、MA がリアクティブに生成するトグル
+(MA Object Toggle 等) はまだ存在せず、出せない。ディスクリプタの Playable Layer に
+加えて MA Merge Animator は辿るので、**乖離の向きは常に「ビルド ⊇ 表示」**になる。
+危険な「表示されるのに変換されない」は起きない。実際に変換したパスはビルドログへ
+出力するので突合できる。
+
+Merge Animator が `Relative` のときはカーブパスがコンポーネント基準なので、
+`relativePathRoot` (未設定ならコンポーネントの位置) をアバタールート相対へ直して
+前置してから照合する。
+
+### その他
+
 機構によらず共通:
 
 - 候補の抽出と絞り込み (入れ子トグルは外側が優先、内側は落とす)
