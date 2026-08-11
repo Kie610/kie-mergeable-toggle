@@ -1,13 +1,13 @@
 {
   "name": "com.kie.mergeable-toggle",
   "displayName": "Mergeable Toggle",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-alpha",
   "description": "Converts existing hand-written animator mesh toggles into blend shapes, lilToon UV tile discard, or NaNimation at build time and normalizes renderer settings, so Avatar Optimizer can merge the toggled meshes while keeping the original toggle behavior.",
   "unity": "2022.3",
   "license": "MIT",
   "author": {
     "name": "Kie",
-    "email": "kito0524s@gmail.com",
+    "email": "64377537+Kie610@users.noreply.github.com",
     "url": "https://github.com/Kie610"
   },
   "changelogUrl": "https://github.com/Kie610/mergeable-toggle/blob/main/CHANGELOG.md",
