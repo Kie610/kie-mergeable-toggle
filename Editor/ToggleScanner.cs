@@ -34,7 +34,7 @@ namespace Kie.MergeableToggle.Editor
         /// アバターの全 Playable Layer から m_IsActive トグルを検出し、
         /// サブツリーに SMR を持つものを候補として返す(パス順)。
         /// </summary>
-        public static List<ToggleCandidate> Scan(VRCAvatarDescriptor descriptor)
+        public static List<ToggleCandidate> Scan(VRCAvatarDescriptor descriptor, bool componentsWillBeDisabled = true)
         {
             var root = descriptor.transform;
             var pathToClips = new Dictionary<string, List<string>>();
@@ -69,7 +69,7 @@ namespace Kie.MergeableToggle.Editor
                     Object = target.gameObject,
                     Renderers = renderers,
                     SourceClips = clips,
-                    Warnings = CollectWarnings(target),
+                    Warnings = CollectWarnings(target, componentsWillBeDisabled),
                 });
             }
 
@@ -80,7 +80,8 @@ namespace Kie.MergeableToggle.Editor
         /// ビルド時用: アニメーターが仮想化された後でも動くよう、階層側から
         /// 「m_IsActive がアニメーションされているか」を問い合わせて候補を組み立てる。
         /// </summary>
-        public static List<ToggleCandidate> ScanHierarchy(Transform root, System.Func<string, bool> isActivenessAnimated)
+        public static List<ToggleCandidate> ScanHierarchy(
+            Transform root, System.Func<string, bool> isActivenessAnimated, bool componentsWillBeDisabled = true)
         {
             var result = new List<ToggleCandidate>();
             foreach (var transform in root.GetComponentsInChildren<Transform>(true))
@@ -100,7 +101,7 @@ namespace Kie.MergeableToggle.Editor
                     Path = path,
                     Object = transform.gameObject,
                     Renderers = renderers,
-                    Warnings = CollectWarnings(transform),
+                    Warnings = CollectWarnings(transform, componentsWillBeDisabled),
                 });
             }
 
@@ -125,9 +126,12 @@ namespace Kie.MergeableToggle.Editor
 
         /// <summary>
         /// トグルを常時アクティブ化しても挙動が変わらないか検査する。
-        /// Transform / SkinnedMeshRenderer / IEditorOnly 以外が居たら型名を警告として返す。
+        /// 残ってしまうコンポーネントの型名を警告として返す。
+        ///
+        /// コンポーネント無効化が有効なら、m_Enabled を持つものは非表示中に一緒に
+        /// 落ちるので警告にしない。落とせないものだけが残る。
         /// </summary>
-        private static List<string> CollectWarnings(Transform target)
+        private static List<string> CollectWarnings(Transform target, bool componentsWillBeDisabled)
         {
             var warnings = new List<string>();
             foreach (var component in target.GetComponentsInChildren<Component>(true))
@@ -142,6 +146,7 @@ namespace Kie.MergeableToggle.Editor
                     case IEditorOnly:
                         continue;
                     default:
+                        if (componentsWillBeDisabled && ComponentDisabler.CanDisable(component)) continue;
                         var name = component.GetType().Name;
                         if (!warnings.Contains(name)) warnings.Add(name);
                         continue;

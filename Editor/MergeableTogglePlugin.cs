@@ -2,11 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using nadena.dev.ndmf;
 using nadena.dev.ndmf.animator;
-using Unity.Collections;
 using UnityEditor;
 using UnityEngine;
-using VRC.Dynamics;
-using VRC.SDK3.Dynamics.Constraint.Components;
 
 [assembly: ExportsPlugin(typeof(Kie.MergeableToggle.Editor.MergeableTogglePlugin))]
 
@@ -23,21 +20,21 @@ namespace Kie.MergeableToggle.Editor
             InPhase(BuildPhase.Transforming)
                 .BeforePlugin("nadena.dev.modular-avatar")
                 .WithRequiredExtension(typeof(AnimatorServicesContext), seq =>
-                    seq.Run("Convert toggles to NaNimation", ToggleConverter.Convert));
+                    seq.Run("Convert mesh toggles", ToggleConverter.Convert));
         }
     }
 
     /// <summary>
-    /// m_IsActive トグルを NaNimation(ボーンスケール NaN⇔1)へ変換する。
+    /// m_IsActive トグルを、選択された隠蔽機構へ変換する。
     ///
-    /// - 対象メッシュは常時アクティブ化され、表示切替は複製ボーンのスケールが担う。
-    ///   全頂点が同時に隠れるため頂点複製は不要(貪欲カバーで選んだボーンの複製と
-    ///   ウェイト付替のみ)。
+    /// 共通層の役割:
+    /// - 候補の抽出と絞り込み
+    /// - 対象を常時アクティブ化し、元の m_IsActive カーブをバックエンドの
+    ///   バインディングへ書き換える
     /// - rootBone / localBounds / updateWhenOffscreen を正規化し、AAO の
-    ///   AutoMergeSkinnedMesh の CategorizationKey が揃うようにする(これが
-    ///   メッシュ統合を可能にする本体)。
-    /// - 初期非表示は NaN をシリアライズできないため VRCScaleConstraint
-    ///   (Source weight = NaN)で代用し、トグルクリップ側で無効化する。
+    ///   AutoMergeSkinnedMesh の CategorizationKey を揃える(統合を可能にする本体)
+    ///
+    /// 機構ごとの差分は <see cref="HidePlan"/> を返すバックエンドに閉じている。
     /// </summary>
     internal static class ToggleConverter
     {
@@ -56,13 +53,35 @@ namespace Kie.MergeableToggle.Editor
 
                 // アニメーターは既に仮想化されているため、AnimationIndex へ問い合わせて候補を出す
                 var asc = context.Extension<AnimatorServicesContext>();
-                var targets = ToggleScanner.ScanHierarchy(root.transform, path =>
+                var candidates = ToggleScanner.ScanHierarchy(root.transform, path =>
                         asc.AnimationIndex.GetClipsForBinding(
-                            EditorCurveBinding.FloatCurve(path, typeof(GameObject), "m_IsActive")).Any())
+                            EditorCurveBinding.FloatCurve(path, typeof(GameObject), "m_IsActive")).Any(),
+                        component.disableComponentsWhenHidden)
                     .Where(c => c.IsClean ? !excluded.Contains(c.Path) : forced.Contains(c.Path))
-                    .Where(c => c.Renderers.All(CanApplyNaNimation))
+                    .Where(c => c.Renderers.All(r => CanApply(component.MethodFor(c.Path), r)))
                     .ToList();
-                Debug.Log($"[MergeableToggle] converting {targets.Count} toggles");
+
+                // 入れ子トグルで同じレンダラーが二重に変換されると、ブレンドシェイプが
+                // 二重に効く(デルタが加算されて原点を通り越す)等の破綻が起きる。
+                // 外側から順に確保し、既に確保済みのレンダラーを含む候補は落とす。
+                var claimed = new HashSet<SkinnedMeshRenderer>();
+                var targets = new List<ToggleCandidate>();
+                foreach (var candidate in candidates.OrderBy(c => c.Path.Count(ch => ch == '/')))
+                {
+                    if (candidate.Renderers.Any(claimed.Contains))
+                    {
+                        Debug.LogWarning(
+                            $"[MergeableToggle] skipped nested toggle '{candidate.Path}' " +
+                            "(its renderers are already converted by an outer toggle)");
+                        continue;
+                    }
+
+                    foreach (var renderer in candidate.Renderers) claimed.Add(renderer);
+                    targets.Add(candidate);
+                }
+
+                Debug.Log($"[MergeableToggle] converting {targets.Count} toggles " +
+                          $"({targets.Count(t => component.MethodFor(t.Path) == HideMethod.NaNimation)} via NaNimation)");
                 if (targets.Count == 0) return;
 
                 // 正規化用の共通 rootBone と合併バウンズ(変換前の値で計算)
@@ -73,21 +92,56 @@ namespace Kie.MergeableToggle.Editor
                 var unionBounds = ComputeUnionBounds(
                     targets.SelectMany(t => t.Renderers).Distinct(), commonRootBone);
 
-                foreach (var target in targets)
+                // UV タイル破棄はタイルを奪い合うので先に配る。
+                // 使い切ったトグルは対象から落とす(方式を変えてもらう)。
+                var tileOf = new Dictionary<string, int>();
+                foreach (var target in targets.Where(t => component.MethodFor(t.Path) == HideMethod.UVTileDiscard))
                 {
-                    var scaleBones = new List<Transform>();
-                    foreach (var renderer in target.Renderers)
-                        scaleBones.AddRange(ApplyNaNimation(renderer));
+                    if (tileOf.Count >= UVTileDiscardHider.UsableTileCount)
+                    {
+                        Debug.LogWarning(
+                            $"[MergeableToggle] '{target.Path}' は UV タイルを使い切ったため " +
+                            $"({UVTileDiscardHider.UsableTileCount} 枚まで)変換しません。" +
+                            "一部のトグルを別の方式へ切り替えてください。");
+                        continue;
+                    }
 
-                    var initiallyHidden = !target.Object.activeSelf;
-                    target.Object.SetActive(true);
-
-                    if (initiallyHidden) AddInitialStateConstraints(scaleBones);
-                    RewriteToggleCurves(asc, root.transform, target.Path, scaleBones, initiallyHidden);
+                    tileOf[target.Path] = tileOf.Count;
                 }
 
-                // 正規化は全トグル処理後にまとめて行う(入れ子トグルで同一レンダラーを
-                // 複数回処理しても壊れないよう、冪等な代入だけにする)
+                targets.RemoveAll(t => component.MethodFor(t.Path) == HideMethod.UVTileDiscard
+                                       && !tileOf.ContainsKey(t.Path));
+
+                var tileRenderers = targets
+                    .Where(t => tileOf.ContainsKey(t.Path))
+                    .SelectMany(t => t.Renderers)
+                    .Distinct()
+                    .ToList();
+
+                foreach (var target in targets)
+                {
+                    var initiallyHidden = !target.Object.activeSelf;
+                    var method = component.MethodFor(target.Path);
+
+                    if (method == HideMethod.UVTileDiscard && initiallyHidden
+                        && !component.skipInitiallyHiddenMaterialClone)
+                        UVTileDiscardHider.SetInitiallyHidden(target, tileOf[target.Path]);
+
+                    var plan = Apply(method, target, root.transform, initiallyHidden,
+                        tileOf.TryGetValue(target.Path, out var tile) ? tile : 0, tileRenderers);
+                    if (plan.IsEmpty)
+                    {
+                        Debug.LogWarning($"[MergeableToggle] '{target.Path}' produced no hide plan; left as-is");
+                        continue;
+                    }
+
+                    if (component.disableComponentsWhenHidden)
+                        ComponentDisabler.AddDisableBindings(target, root.transform, plan);
+
+                    target.Object.SetActive(true);
+                    RewriteToggleCurves(asc, target.Path, plan);
+                }
+
                 foreach (var renderer in targets.SelectMany(t => t.Renderers).Distinct())
                 {
                     renderer.rootBone = commonRootBone;
@@ -101,107 +155,28 @@ namespace Kie.MergeableToggle.Editor
             }
         }
 
-        private static bool CanApplyNaNimation(SkinnedMeshRenderer renderer)
+        internal static bool CanApply(HideMethod method, SkinnedMeshRenderer renderer)
         {
-            // ボーンウェイトを持たない SMR(クロス等)は NaN を届ける先がない
-            return renderer.sharedMesh != null && renderer.sharedMesh.bindposeCount > 0
-                                               && renderer.bones.Length > 0;
+            return method switch
+            {
+                HideMethod.NaNimation => NaNimationHider.CanApply(renderer),
+                HideMethod.UVTileDiscard => UVTileDiscardHider.CanApply(renderer),
+                _ => BlendShapeHider.CanApply(renderer),
+            };
         }
 
-        /// <summary>
-        /// レンダラーの全頂点を NaN 化できるようにする。
-        /// 貪欲セットカバーで「残り頂点を最も多くカバーするボーン」を選び、その複製を
-        /// 選択ボーンの子として作成、カバーした頂点の該当ウェイトを複製へ付け替える。
-        /// 複製は親と同一姿勢(ローカル恒等・bindpose コピー)なのでスケール 1 の間
-        /// スキニングは不変。入れ子トグルで再変換された場合は前回の複製ボーンが
-        /// 選ばれ、その子として新複製ができるため、親の NaN も伝播する(OR 条件)。
-        /// </summary>
-        private static List<Transform> ApplyNaNimation(SkinnedMeshRenderer renderer)
+        private static HidePlan Apply(
+            HideMethod method, ToggleCandidate target, Transform root, bool initiallyHidden, int tileIndex,
+            List<SkinnedMeshRenderer> tileRenderers)
         {
-            var mesh = renderer.sharedMesh;
-            var weights = mesh.GetAllBoneWeights().ToArray();
-            var bonesPerVertex = mesh.GetBonesPerVertex().ToArray();
-            var vertexCount = bonesPerVertex.Length;
-
-            var firstWeightIndex = new int[vertexCount];
-            for (int v = 0, w = 0; v < vertexCount; v++)
+            return method switch
             {
-                firstWeightIndex[v] = w;
-                w += bonesPerVertex[v];
-            }
-
-            // ボーンごとの被覆頂点数
-            var boneToCount = new Dictionary<int, int>();
-            var remaining = new List<int>();
-            for (var v = 0; v < vertexCount; v++)
-            {
-                var hasInfluence = false;
-                for (var i = 0; i < bonesPerVertex[v]; i++)
-                {
-                    var bw = weights[firstWeightIndex[v] + i];
-                    if (bw.weight == 0 || bw.boneIndex < 0) continue;
-                    hasInfluence = true;
-                    boneToCount[bw.boneIndex] = boneToCount.GetValueOrDefault(bw.boneIndex) + 1;
-                }
-
-                if (hasInfluence) remaining.Add(v);
-            }
-
-            var bones = renderer.bones.ToList();
-            var bindposes = mesh.bindposes.ToList();
-            var sortedBones = boneToCount.OrderByDescending(kv => kv.Value).Select(kv => kv.Key)
-                .Where(b => b < bones.Count && bones[b] != null)
-                .ToList();
-
-            var addedBones = new List<Transform>();
-            foreach (var boneIndex in sortedBones)
-            {
-                if (remaining.Count == 0) break;
-
-                var newIndex = bones.Count;
-                Transform newBone = null; // 実際にカバーする頂点が見つかってから生成する
-
-                remaining.RemoveAll(v =>
-                {
-                    for (var i = 0; i < bonesPerVertex[v]; i++)
-                    {
-                        var bw = weights[firstWeightIndex[v] + i];
-                        if (bw.weight == 0 || bw.boneIndex != boneIndex) continue;
-
-                        if (newBone == null)
-                        {
-                            newBone = new GameObject($"MT_NaN_{renderer.name}_{addedBones.Count}").transform;
-                            newBone.SetParent(bones[boneIndex], false);
-                            bones.Add(newBone);
-                            bindposes.Add(bindposes[boneIndex]);
-                            addedBones.Add(newBone);
-                        }
-
-                        bw.boneIndex = newIndex;
-                        weights[firstWeightIndex[v] + i] = bw;
-                        return true;
-                    }
-
-                    return false;
-                });
-            }
-
-            if (addedBones.Count == 0) return addedBones;
-
-            // 非破壊: メッシュを複製してから書き換える
-            var newMesh = Object.Instantiate(mesh);
-            newMesh.name = mesh.name;
-            ObjectRegistry.RegisterReplacedObject(mesh, newMesh);
-            newMesh.bindposes = bindposes.ToArray();
-            using (var nativeBpv = new NativeArray<byte>(bonesPerVertex, Allocator.Temp))
-            using (var nativeWeights = new NativeArray<BoneWeight1>(weights, Allocator.Temp))
-            {
-                newMesh.SetBoneWeights(nativeBpv, nativeWeights);
-            }
-
-            renderer.sharedMesh = newMesh;
-            renderer.bones = bones.ToArray();
-            return addedBones;
+                HideMethod.NaNimation => NaNimationHider.Apply(target, root, initiallyHidden),
+                HideMethod.UVTileDiscard =>
+                    UVTileDiscardHider.Apply(target, root, initiallyHidden, tileIndex, tileRenderers),
+                _ => BlendShapeHider.Apply(
+                    target, root, initiallyHidden, method == HideMethod.BlendShapeAxis),
+            };
         }
 
         private static Bounds ComputeUnionBounds(IEnumerable<SkinnedMeshRenderer> renderers, Transform rootBone)
@@ -234,69 +209,36 @@ namespace Kie.MergeableToggle.Editor
         }
 
         /// <summary>
-        /// 初期非表示トグル用: シーンに NaN スケールを保存できないため、
-        /// VRCScaleConstraint(Source weight = NaN)で起動直後から NaN にする。
-        /// アニメーション側が動き出したら RewriteToggleCurves の IsActive=0 で無効化される。
+        /// oldPath の m_IsActive カーブを、計画のバインディングへ書き換える。
+        /// アクティブ→visible / 非アクティブ→hidden。
         /// </summary>
-        private static void AddInitialStateConstraints(List<Transform> scaleBones)
-        {
-            foreach (var bone in scaleBones)
-            {
-                var constraint = bone.gameObject.AddComponent<VRCScaleConstraint>();
-                constraint.Sources.Add(new VRCConstraintSource
-                {
-                    SourceTransform = constraint.transform,
-                    Weight = float.NaN,
-                });
-                constraint.GlobalWeight = 1.0f;
-                constraint.Locked = true;
-                constraint.IsActive = true;
-            }
-        }
-
-        /// <summary>
-        /// oldPath の m_IsActive カーブを、全クリップでスケールボーンの
-        /// m_LocalScale NaN⇔1 カーブへ書き換える(アクティブ→1 / 非アクティブ→NaN)。
-        /// </summary>
-        private static void RewriteToggleCurves(
-            AnimatorServicesContext asc, Transform root, string oldPath,
-            List<Transform> scaleBones, bool hasConstraint)
+        private static void RewriteToggleCurves(AnimatorServicesContext asc, string oldPath, HidePlan plan)
         {
             var oldBinding = EditorCurveBinding.FloatCurve(oldPath, typeof(GameObject), "m_IsActive");
-            var bonePaths = scaleBones.Select(b => AnimationUtility.CalculateTransformPath(b, root)).ToList();
 
             asc.AnimationIndex.EditClipsByBinding(new[] { oldBinding }, clip =>
             {
                 var curve = clip.GetFloatCurve(oldBinding);
                 if (curve == null) return;
 
-                // AnimationCurve のコンストラクタは NaN 値のキーを黙って捨てるため、
-                // MA と同様に AddKey + オブジェクト初期化子で構築する
-                var scaleCurve = new AnimationCurve();
-                foreach (var key in curve.keys)
+                foreach (var (binding, visible, hidden) in plan.Toggled)
                 {
-                    scaleCurve.AddKey(new Keyframe(key.time, 0)
+                    // AnimationCurve のコンストラクタは NaN 値のキーを黙って捨てるため、
+                    // MA と同様に AddKey + オブジェクト初期化子で構築する
+                    var mapped = new AnimationCurve();
+                    foreach (var key in curve.keys)
                     {
-                        value = key.value >= 0.5f ? 1f : float.NaN,
-                    });
-                }
-
-                foreach (var bonePath in bonePaths)
-                {
-                    foreach (var axis in new[] { "x", "y", "z" })
-                    {
-                        clip.SetFloatCurve(
-                            EditorCurveBinding.FloatCurve(bonePath, typeof(Transform), "m_LocalScale." + axis),
-                            scaleCurve);
+                        mapped.AddKey(new Keyframe(key.time, 0)
+                        {
+                            value = key.value >= 0.5f ? visible : hidden,
+                        });
                     }
 
-                    if (hasConstraint)
-                    {
-                        clip.SetFloatCurve(
-                            EditorCurveBinding.FloatCurve(bonePath, typeof(VRCScaleConstraint), "IsActive"),
-                            AnimationCurve.Constant(0, 1, 0f));
-                    }
+                    clip.SetFloatCurve(binding, mapped);
                 }
+
+                foreach (var (binding, value) in plan.Constant)
+                    clip.SetFloatCurve(binding, AnimationCurve.Constant(0, 1, value));
 
                 clip.SetFloatCurve(oldBinding, null);
             });
