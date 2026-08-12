@@ -1,4 +1,4 @@
-# Mergeable Toggle
+# kieMergeableToggle
 
 VRChat アバター用の NDMF プラグイン。
 
@@ -20,7 +20,7 @@ AAO (Avatar Optimizer) の自動メッシュ統合は「アクティブ状態の
 
 ## 使い方
 
-1. アバタールートに `Kie/Mergeable Toggle` コンポーネントを追加
+1. アバタールートに `Kie/kieMergeableToggle` コンポーネントを追加
 2. 検出されたトグル一覧から変換したいものを選ぶ (クリーンな候補は初期状態でオン)
 3. **「自動で割り当てる」** を押す
 4. そのままビルドするだけ

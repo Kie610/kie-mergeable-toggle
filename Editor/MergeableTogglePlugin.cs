@@ -11,7 +11,7 @@ namespace Kie.MergeableToggle.Editor
 {
     internal sealed class MergeableTogglePlugin : Plugin<MergeableTogglePlugin>
     {
-        public override string QualifiedName => "com.kie.mergeable-toggle";
+        public override string QualifiedName => "com.kie.kie-mergeable-toggle";
         public override string DisplayName => "Mergeable Toggle";
 
         protected override void Configure()

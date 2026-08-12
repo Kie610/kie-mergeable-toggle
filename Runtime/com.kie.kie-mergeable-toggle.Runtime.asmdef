@@ -1,5 +1,5 @@
 {
-    "name": "com.kie.mergeable-toggle.Runtime",
+    "name": "com.kie.kie-mergeable-toggle.Runtime",
     "rootNamespace": "Kie.MergeableToggle",
     "references": [
         "VRC.SDK3A",

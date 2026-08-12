@@ -70,10 +70,10 @@ namespace Kie.MergeableToggle
     /// ビルド時、既存アニメーターレイヤーの m_IsActive トグルを検出し、
     /// 選択した機構へ変換して AAO のメッシュ統合を可能にする。
     /// </summary>
-    [AddComponentMenu("Kie/Mergeable Toggle")]
+    [AddComponentMenu("Kie/kieMergeableToggle")]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(VRCAvatarDescriptor))]
-    [HelpURL("https://github.com/Kie610/mergeable-toggle")]
+    [HelpURL("https://github.com/Kie610/kie-mergeable-toggle")]
     public sealed class MergeableToggle : MonoBehaviour, IEditorOnly
     {
         /// <summary>変換の有効/無効</summary>
