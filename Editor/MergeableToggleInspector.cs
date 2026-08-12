@@ -83,7 +83,7 @@ namespace Kie.MergeableToggle.Editor
             else
             {
                 DrawMasterToggle();
-                foreach (var candidate in _candidates) DrawCandidateRow(candidate);
+                DrawGroups();
                 DrawSummary();
             }
 
@@ -193,7 +193,7 @@ namespace Kie.MergeableToggle.Editor
 
             _lastAdvice = "自動割り当ての結果:\n" + string.Join("\n", advices
                 .OrderBy(a => a.Candidate.Path)
-                .Select(a => $"{a.Candidate.Object.name} → {LabelOf(a.Method)} ({a.Reason})"));
+                .Select(a => $"{a.Candidate.DisplayName} → {LabelOf(a.Method)} ({a.Reason})"));
         }
 
         private bool IsIncluded(ToggleCandidate candidate)
@@ -240,6 +240,45 @@ namespace Kie.MergeableToggle.Editor
             }
         }
 
+        private readonly Dictionary<string, bool> _groupFoldouts = new Dictionary<string, bool>();
+
+        /// <summary>
+        /// 持ち主(プレハブ／親オブジェクト)ごとに畳んで出す。
+        /// 平らな一覧だと 'HandleMesh' のような名前が文脈なしで並んで判別できない。
+        /// </summary>
+        private void DrawGroups()
+        {
+            foreach (var group in _candidates.GroupBy(c => c.GroupKey).OrderBy(g => g.Key))
+            {
+                var members = group.ToList();
+                var key = group.Key ?? "";
+                var label = members[0].GroupLabel;
+
+                if (!_groupFoldouts.ContainsKey(key)) _groupFoldouts[key] = true;
+
+                var includedCount = members.Count(IsIncluded);
+                var allIncluded = includedCount == members.Count;
+
+                EditorGUILayout.BeginHorizontal();
+                _groupFoldouts[key] = EditorGUILayout.Foldout(
+                    _groupFoldouts[key],
+                    new GUIContent($"{label} ({members.Count}件)", key),
+                    true);
+
+                EditorGUI.showMixedValue = includedCount > 0 && !allIncluded;
+                var rect = GUILayoutUtility.GetRect(14, EditorGUIUtility.singleLineHeight, GUILayout.Width(14));
+                var newMaster = EditorGUI.Toggle(rect, allIncluded);
+                EditorGUI.showMixedValue = false;
+                EditorGUILayout.EndHorizontal();
+
+                if (newMaster != allIncluded)
+                    foreach (var candidate in members) SetIncluded(candidate, newMaster);
+
+                if (!_groupFoldouts[key]) continue;
+                foreach (var candidate in members) DrawCandidateRow(candidate);
+            }
+        }
+
         private void DrawCandidateRow(ToggleCandidate candidate)
         {
             EditorGUILayout.BeginHorizontal();
@@ -250,8 +289,9 @@ namespace Kie.MergeableToggle.Editor
             var newIncluded = EditorGUI.Toggle(toggleRect, included);
             if (newIncluded != included) SetIncluded(candidate, newIncluded);
 
-            var label = new GUIContent(candidate.Object.name,
-                $"{candidate.Path}\nトグル元クリップ: {string.Join(", ", candidate.SourceClips)}");
+            var label = new GUIContent(candidate.RowName,
+                $"オブジェクト: {candidate.Object.name}\n{candidate.Path}\n" +
+                $"トグル元クリップ: {string.Join(", ", candidate.SourceClips)}");
             EditorGUILayout.LabelField(label);
 
             EditorGUILayout.LabelField($"SMR {candidate.Renderers.Count}", GUILayout.Width(50));
@@ -351,8 +391,10 @@ namespace Kie.MergeableToggle.Editor
             var nan = included.Count(c => _component.MethodFor(c.Path) == HideMethod.NaNimation);
             if (nan > 0) lines.Add($"NaNimation {nan} 件のぶんだけボーン数が増えます。");
 
-            lines.Add("Modular Avatar がリアクティブに生成するトグル(MA Object Toggle など)は\n" +
-                      "ビルド時に追加で変換されますが、まだ存在しないのでこの一覧には出ません。\n" +
+            lines.Add("この一覧はビルド結果の予告ではありません。\n" +
+                      "ビルド時にトグルを生成するツール(Avatar Menu Creator、MA Object Toggle など)の\n" +
+                      "ぶんは、まだクリップが存在しないのでここに出ません。逆に、ビルド中に階層を\n" +
+                      "組み替えるツール(AvatarPoseSystem など)のぶんは、出ていても変換されません。\n" +
                       "実際に変換されたものはビルドログに出力されます。");
 
             var tiles = included.Count(c => _component.MethodFor(c.Path) == HideMethod.UVTileDiscard);

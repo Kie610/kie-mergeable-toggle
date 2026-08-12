@@ -89,8 +89,8 @@ namespace Kie.MergeableToggle.Editor
                     targets.Add(candidate);
                 }
 
-                // インスペクタの一覧はビルド時より狭い(MA がリアクティブに生成するトグルは
-                // 編集時には存在しない)。突合できるよう、実際に変換したものを機構つきで出す。
+                // インスペクタの一覧はビルド結果と一致しない(ビルド時にトグルを生成する
+                // ツールのぶんは編集時に存在しない)。一覧は参考表示で、正はこのログ。
                 Debug.Log($"[MergeableToggle] converting {targets.Count} toggles\n" +
                           string.Join("\n", targets.Select(
                               t => $"  {component.MethodFor(t.Path)}\t{t.Path}")));
