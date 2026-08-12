@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0-alpha]
+
+### 破壊的変更
+
+- **パッケージ ID を `com.kie.mergeable-toggle` から `com.kie.kie-mergeable-toggle` へ
+  変更した。** 作者の他パッケージと命名を揃えるため。VPM 上は別パッケージとして
+  扱われるので、旧 ID で入れている場合は一度削除してから入れ直すこと。
+- GitHub リポジトリも `Kie610/kie-mergeable-toggle` へ改名した
+  (旧 URL からはリダイレクトされる)。
+- displayName を `kieMergeableToggle`、コンポーネントメニューを
+  `Kie/kieMergeableToggle` へ変更した。既に付けてあるコンポーネントは影響を受けない。
+
+旧 ID の 0.1.0-alpha / 0.2.0-alpha は動作が不十分だったため Release ごと破棄した。
+
 ## [0.2.0-alpha]
 
 ### 修正
