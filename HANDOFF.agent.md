@@ -15,7 +15,7 @@ complete:
 - C: MA Merge Animator 経由のトグルの検出 (0.2.0-alpha)
 
 verified:
-- C: 2026-08-11 — evidence: status=PASS; kind=runtime; scope=実アバター 2 体への E2E 変換; counts=MUMUS_all で SMR 21→4・ボーン 453→933・ポリゴン不変・NaN クリップ 20・m_IsActive バインディング 48→5 / Shinano で SMR 11→2・ボーン 272→469・ポリゴン不変・NaN クリップ 7。検出はシーン内 10 体で 80 候補。詳細は `docs/handoff-history.md`
+- C: 2026-08-11 — evidence: status=PASS; kind=runtime; scope=実アバター 2 体への E2E 変換; counts=MUMUS_all で SMR 21→4・ボーン 453→933・ポリゴン不変・NaN クリップ 20・m_IsActive バインディング 48→5 / Shinano で SMR 11→2・ボーン 272→469・ポリゴン不変・NaN クリップ 7。検出はシーン内 10 体で 80 候補。詳細は `handoff-history.md`
 
 not-run:
 - U: Av3Emulator でのトグル挙動の目視確認。構造の証拠は取れているが、プレイモードの実挙動は未確認 (2026-08-11 時点で残タスク・以後の実施記録なし)
@@ -37,6 +37,6 @@ not-run:
 
 ## Paths
 
-- C: `docs/handoff-history.md` — 2026-08-11 の作業メモ (原文)
+- C: `handoff-history.md` — 2026-08-11 の作業メモ (原文)
 - C: `Docs/hiding-mechanisms.md` — 隠しかたの比較 (利用者向け)
 - C: `../../DevProject` — Unity 検証プロジェクト

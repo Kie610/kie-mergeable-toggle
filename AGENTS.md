@@ -69,5 +69,5 @@ Unity の検証は `../../DevProject` を開いて行う。バッチ実行の前
 ## Handoff maintenance
 
 - 現在の状態は `HANDOFF.agent.md` が正本。実質的な進捗・判断・検証・blocker が変わったら更新する
-- 過去の作業メモは `docs/handoff-history.md` へ原文のまま残す。上書きしない
+- 過去の作業メモは `handoff-history.md` へ原文のまま残す。上書きしない
 - 作業メモをワークスペース直下（`../../`）へ置かない
