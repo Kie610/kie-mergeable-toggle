@@ -3,7 +3,7 @@
 updated: 2026-08-25
 repo: D:/GitHub_WorkSpace/VRC/Packages/com.kie.kie-mergeable-toggle (origin = github.com/Kie610/kie-mergeable-toggle)
 work_branch: main
-upstream: origin/main (2026-08-19 時点で同期済み・未再確認)
+upstream: origin/main (2026-08-25 に 0.5.0-alpha まで push 済み)
 base: main@3907539
 goal: 手書きのメッシュトグルを AAO が統合できる隠しかたへ機械的に変換する
 
@@ -26,7 +26,7 @@ verified:
 - C: 2026-08-25 — evidence: status=PASS; kind=build; command=Unity.exe -batchmode -quit -projectPath DevProject; environment=Unity 2022.3.22f1 batchmode (Editor を閉じた状態); scope=1 本化後の DevProject 全体のコンパイル。error CS 0 件、exit 0; counts=passed=1, failed=0, skipped=0, not-run=0
 
 not-run:
-- U: U4 新機構の Quest 実機 (モバイル GPU で ∞ 頂点がどう扱われるか)。PC は 2026-08-25 に確認済み
+- U: U4 Quest 実機 (モバイル GPU で ∞ 頂点がどう扱われるか)。PC は 2026-08-25 に確認済み。**着手は最後**(下記 Decisions)
 - U: U5 εNaN ボーン方式は未着手のまま棚上げ (infinimation で足りたため。研究文書に設計案は残っている)
 
 ## Decisions
@@ -51,8 +51,8 @@ not-run:
    `[高難度]アバター関連開発` へ転送済み (設計判断・アバターを壊し得る挙動のため)。
    MA を辿る案は不成立 (下記 Decisions)。回答待ち
 2. 検出精度の向上 (一覧とビルド結果の乖離) — 同じブリーフで転送済み。回答待ち
-3. Quest 実機での確認 (モバイル GPU の ∞ 頂点)。Mobile 向けの推奨を決めるのに要る
-   — blocked-by: none
+3. Quest 実機での確認 (モバイル GPU の ∞ 頂点) — blocked-by: PC 版の機能充足
+   (ユーザー判断で最後に回す)
 
 ## Paths
 
