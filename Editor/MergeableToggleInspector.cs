@@ -96,6 +96,13 @@ namespace Kie.MergeableToggle.Editor
                     "コンタクトは反応します。元のトグルと挙動を揃えるなら有効にしてください。",
                     MessageType.Warning);
             }
+
+            EditorGUILayout.PropertyField(
+                serializedObject.FindProperty("disablePhysBonesWhenHidden"),
+                new GUIContent("非表示中は専用 PhysBone も止める",
+                    "その衣装だけが使っているアーマチュア側の PhysBone を、隠すのと同じ" +
+                    "タイミングで無効化します。素体と共有しているボーン (胸・尻尾など) は" +
+                    "止めません。何を止めたかはビルドログに出ます。"));
         }
 
         private bool IsIncluded(ToggleCandidate candidate)
