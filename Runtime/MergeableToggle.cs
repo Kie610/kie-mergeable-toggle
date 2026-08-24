@@ -32,6 +32,20 @@ namespace Kie.MergeableToggle
         /// </summary>
         public bool disableComponentsWhenHidden = true;
 
+        /// <summary>
+        /// 非表示のあいだ、その衣装のためだけに存在するアーマチュア側の PhysBone も止める。
+        ///
+        /// 衣装の揺れボーンはアーマチュア側に付いているため、元の m_IsActive トグルでも
+        /// <see cref="disableComponentsWhenHidden"/> でも止まらず、隠れたまま CPU を使い続ける。
+        /// これを有効にすると、PhysBone のチェーンを使うレンダラーが全部そのトグルで
+        /// 隠れる場合に限り、同じタイミングで m_Enabled を落とす。
+        /// 素体と共有しているボーン(胸・尻尾など)は判定で除外されるので止まらない。
+        ///
+        /// 再表示時、PhysBone はレスト位置から揺れ直す(Unity の仕様。隠れている間の
+        /// 状態は保持されない)。
+        /// </summary>
+        public bool disablePhysBonesWhenHidden = true;
+
         /// <summary>変換から除外するトグル対象のパス(クリーン候補はデフォルトで変換対象)</summary>
         public List<string> excludedPaths = new List<string>();
 

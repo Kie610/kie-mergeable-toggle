@@ -16,7 +16,8 @@ kieMergeableToggle（`com.kie.kie-mergeable-toggle`）のリポジトリ。**こ
 利用者はアバター制作者。公開契約は次の 3 つで、変えると利用者の Prefab が壊れる。
 
 - コンポーネント `MergeableToggle`（`Runtime/MergeableToggle.cs`）とそのフィールド名
-  （`enableConversion` / `disableComponentsWhenHidden` / `excludedPaths` / `forceIncludedPaths`）
+  （`enableConversion` / `disableComponentsWhenHidden` / `disablePhysBonesWhenHidden` /
+  `excludedPaths` / `forceIncludedPaths`）
 - ビルド後の生成物の形（`MT_Hide_…` ブレンドシェイプと `blendShape.` カーブによる隠しかた）
 - パッケージ ID `com.kie.kie-mergeable-toggle`
 

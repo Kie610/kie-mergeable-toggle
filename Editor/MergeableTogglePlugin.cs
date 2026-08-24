@@ -103,6 +103,11 @@ namespace Kie.MergeableToggle.Editor
                 var unionBounds = ComputeUnionBounds(
                     targets.SelectMany(t => t.Renderers).Distinct(), commonRootBone);
 
+                var pbStopper = component.disablePhysBonesWhenHidden
+                    ? PhysBoneStopper.Build(root.transform)
+                    : null;
+                var stoppedLog = new List<string>();
+
                 foreach (var target in targets)
                 {
                     var plan = InfinimationHider.Apply(
@@ -116,9 +121,21 @@ namespace Kie.MergeableToggle.Editor
                     if (component.disableComponentsWhenHidden)
                         ComponentDisabler.AddDisableBindings(target, root.transform, plan);
 
+                    if (pbStopper != null)
+                    {
+                        var stopped = pbStopper.AddStopBindings(target, plan,
+                            binding => asc.AnimationIndex.GetClipsForBinding(binding).Any());
+                        stoppedLog.AddRange(stopped.Select(p => $"  {target.Path} -> {p}"));
+                    }
+
                     target.Object.SetActive(true);
                     RewriteToggleCurves(asc, target.Path, plan);
                 }
+
+                // 一覧(編集時)はビルド結果と一致しないので、何を止めたかはこのログが正
+                if (pbStopper != null)
+                    Debug.Log($"[MergeableToggle] stopping {stoppedLog.Count} armature-side PhysBones while hidden\n" +
+                              string.Join("\n", stoppedLog));
 
                 foreach (var renderer in targets.SelectMany(t => t.Renderers).Distinct())
                 {
