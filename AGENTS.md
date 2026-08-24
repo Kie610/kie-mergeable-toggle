@@ -16,8 +16,8 @@ kieMergeableToggle（`com.kie.kie-mergeable-toggle`）のリポジトリ。**こ
 利用者はアバター制作者。公開契約は次の 3 つで、変えると利用者の Prefab が壊れる。
 
 - コンポーネント `MergeableToggle`（`Runtime/MergeableToggle.cs`）とそのフィールド名
-  （`enableConversion` / `excludedPaths` / `forceIncludedPaths`）
-- ビルド後の生成物の形（複製ボーンの位置づけ、NaN スケールによる隠しかた）
+  （`enableConversion` / `disableComponentsWhenHidden` / `excludedPaths` / `forceIncludedPaths`）
+- ビルド後の生成物の形（`MT_Hide_…` ブレンドシェイプと `blendShape.` カーブによる隠しかた）
 - パッケージ ID `com.kie.kie-mergeable-toggle`
 
 内部実装（`Editor/` のクラス構成、走査の順序、貪欲セットカバーの詰め方）は自由に変えてよい。
@@ -34,8 +34,8 @@ kieMergeableToggle（`com.kie.kie-mergeable-toggle`）のリポジトリ。**こ
 - **AAO（Avatar Optimizer）の自動メッシュ統合を阻害しない。** 変換後は rootBone を Hips へ、
   localBounds を合併値へ、`m_UpdateWhenOffscreen` を false へ正規化する。ここが揃わないと
   AAO の `CategorizationKey` が一致せず、統合されない（これが本パッケージの存在理由）
-- **NaN キーの構築は `AddKey` + オブジェクト初期化子で行う。** `AnimationCurve` の
-  コンストラクタは NaN キーを捨てる
+- **隠蔽シェイプのデルタは必ず `+Infinity` で作る。** NaN デルタは Unity が格納時に
+  0 へ潰す（実測）
 - メッシュの改変は `Instantiate` + `RegisterReplacedObject` で非破壊に行う。元アセットを書き換えない
 - ポリゴン数を変えない。変換はボーンとカーブの付け替えに限る
 

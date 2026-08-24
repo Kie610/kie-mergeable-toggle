@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.5.0-alpha]
+
+隠しかたを **infinimation の 1 本**にした。**破壊的変更**（`HideMethod` と
+トグルごとの機構上書きが無くなる）。
+
+### 追加
+
+- **infinimation** — 全頂点のデルタを `+Infinity` にしたブレンドシェイプを生成し、
+  0⇔100 で切り替える。頂点が非有限座標へ飛んでプリミティブがクリップ段で破棄されるため
+  完全に消えるが、ボーン・コンストレイント・マテリアル・ポリゴンはひとつも増えず、
+  シェーダにもプラットフォームにも依存しない。初期非表示はシェイプのウェイトとして
+  そのままシリアライズできる。
+
+  NaN デルタは Unity が格納時に 0 へ潰すので `+Infinity` で作る（実測）。
+
+  AAO 込みの実測: Shinano SMR 11→2・MatSlots 14→6・ボーン 272 のまま /
+  MUMUS_all SMR 21→4・MatSlots 36→18・ボーン 453 のまま。ポリゴン数は不変。
+  Play（Av3Emulator）と PC 実機でも、トグル往復・初期非表示・カリング・ランク表示に
+  問題が無いことを確認した。**Quest（モバイル GPU）は未検証。**
+
+### 削除（破壊的変更）
+
+- **既存 4 機構を退役させた** — シェイプ(関節) / シェイプ(軸) / UVタイル破棄 /
+  NaNimation。infinimation がすべての面で上回ったため。それぞれ、畳み残しが見える /
+  同左 / lilToon 専用・PC 限定・15 枠上限 / boneCount が増える、という弱点があった。
+- **`HideMethod` と `MethodOverride` を削除した。** トグルごとの機構選択が無くなるため、
+  インスペクタの機構ポップアップと「自動で割り当てる」も消えた。
+- **`MethodAdvisor` を削除した**（機構が 1 つになり、割り当てを決める必要が無くなった）。
+- **`skipInitiallyHiddenMaterialClone` を削除した**（UV タイル破棄専用の設定だった）。
+
+`hideMethod` / `methodOverrides` / `skipInitiallyHiddenMaterialClone` を設定していた
+Prefab は、その値が失われる（変換自体は infinimation で行われる）。
+
 ## [0.4.0-alpha]
 
 一覧が読めない問題への対応。**検出・変換のロジックは変えていない。**

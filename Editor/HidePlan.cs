@@ -14,9 +14,6 @@ namespace Kie.MergeableToggle.Editor
         /// <summary>元のトグルカーブに追従させるバインディング</summary>
         public readonly List<(EditorCurveBinding binding, float visible, float hidden)> Toggled = new();
 
-        /// <summary>トグルクリップ内で定数にしておくバインディング(NaNimation の初期状態解除など)</summary>
-        public readonly List<(EditorCurveBinding binding, float value)> Constant = new();
-
         public bool IsEmpty => Toggled.Count == 0;
     }
 }

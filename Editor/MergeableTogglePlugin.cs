@@ -43,7 +43,7 @@ namespace Kie.MergeableToggle.Editor
     /// - rootBone / localBounds / updateWhenOffscreen を正規化し、AAO の
     ///   AutoMergeSkinnedMesh の CategorizationKey を揃える(統合を可能にする本体)
     ///
-    /// 機構ごとの差分は <see cref="HidePlan"/> を返すバックエンドに閉じている。
+    /// 隠しかたの実装は <see cref="HidePlan"/> を返す <see cref="InfinimationHider"/> に閉じている。
     /// </summary>
     internal static class ToggleConverter
     {
@@ -67,11 +67,11 @@ namespace Kie.MergeableToggle.Editor
                             EditorCurveBinding.FloatCurve(path, typeof(GameObject), "m_IsActive")).Any(),
                         component.disableComponentsWhenHidden)
                     .Where(c => c.IsClean ? !excluded.Contains(c.Path) : forced.Contains(c.Path))
-                    .Where(c => c.Renderers.All(r => CanApply(component.MethodFor(c.Path), r)))
+                    .Where(c => c.Renderers.All(InfinimationHider.CanApply))
                     .ToList();
 
                 // 入れ子トグルで同じレンダラーが二重に変換されると、ブレンドシェイプが
-                // 二重に効く(デルタが加算されて原点を通り越す)等の破綻が起きる。
+                // 二重に効く(デルタが加算される)等の破綻が起きる。
                 // 外側から順に確保し、既に確保済みのレンダラーを含む候補は落とす。
                 var claimed = new HashSet<SkinnedMeshRenderer>();
                 var targets = new List<ToggleCandidate>();
@@ -92,8 +92,7 @@ namespace Kie.MergeableToggle.Editor
                 // インスペクタの一覧はビルド結果と一致しない(ビルド時にトグルを生成する
                 // ツールのぶんは編集時に存在しない)。一覧は参考表示で、正はこのログ。
                 Debug.Log($"[MergeableToggle] converting {targets.Count} toggles\n" +
-                          string.Join("\n", targets.Select(
-                              t => $"  {component.MethodFor(t.Path)}\t{t.Path}")));
+                          string.Join("\n", targets.Select(t => "  " + t.Path)));
                 if (targets.Count == 0) return;
 
                 // 正規化用の共通 rootBone と合併バウンズ(変換前の値で計算)
@@ -104,43 +103,10 @@ namespace Kie.MergeableToggle.Editor
                 var unionBounds = ComputeUnionBounds(
                     targets.SelectMany(t => t.Renderers).Distinct(), commonRootBone);
 
-                // UV タイル破棄はタイルを奪い合うので先に配る。
-                // 使い切ったトグルは対象から落とす(方式を変えてもらう)。
-                var tileOf = new Dictionary<string, int>();
-                foreach (var target in targets.Where(t => component.MethodFor(t.Path) == HideMethod.UVTileDiscard))
-                {
-                    if (tileOf.Count >= UVTileDiscardHider.UsableTileCount)
-                    {
-                        Debug.LogWarning(
-                            $"[MergeableToggle] '{target.Path}' は UV タイルを使い切ったため " +
-                            $"({UVTileDiscardHider.UsableTileCount} 枚まで)変換しません。" +
-                            "一部のトグルを別の方式へ切り替えてください。");
-                        continue;
-                    }
-
-                    tileOf[target.Path] = tileOf.Count;
-                }
-
-                targets.RemoveAll(t => component.MethodFor(t.Path) == HideMethod.UVTileDiscard
-                                       && !tileOf.ContainsKey(t.Path));
-
-                var tileRenderers = targets
-                    .Where(t => tileOf.ContainsKey(t.Path))
-                    .SelectMany(t => t.Renderers)
-                    .Distinct()
-                    .ToList();
-
                 foreach (var target in targets)
                 {
-                    var initiallyHidden = !target.Object.activeSelf;
-                    var method = component.MethodFor(target.Path);
-
-                    if (method == HideMethod.UVTileDiscard && initiallyHidden
-                        && !component.skipInitiallyHiddenMaterialClone)
-                        UVTileDiscardHider.SetInitiallyHidden(target, tileOf[target.Path]);
-
-                    var plan = Apply(method, target, root.transform, initiallyHidden,
-                        tileOf.TryGetValue(target.Path, out var tile) ? tile : 0, tileRenderers);
+                    var plan = InfinimationHider.Apply(
+                        target, root.transform, !target.Object.activeSelf);
                     if (plan.IsEmpty)
                     {
                         Debug.LogWarning($"[MergeableToggle] '{target.Path}' produced no hide plan; left as-is");
@@ -165,30 +131,6 @@ namespace Kie.MergeableToggle.Editor
             {
                 Object.DestroyImmediate(component);
             }
-        }
-
-        internal static bool CanApply(HideMethod method, SkinnedMeshRenderer renderer)
-        {
-            return method switch
-            {
-                HideMethod.NaNimation => NaNimationHider.CanApply(renderer),
-                HideMethod.UVTileDiscard => UVTileDiscardHider.CanApply(renderer),
-                _ => BlendShapeHider.CanApply(renderer),
-            };
-        }
-
-        private static HidePlan Apply(
-            HideMethod method, ToggleCandidate target, Transform root, bool initiallyHidden, int tileIndex,
-            List<SkinnedMeshRenderer> tileRenderers)
-        {
-            return method switch
-            {
-                HideMethod.NaNimation => NaNimationHider.Apply(target, root, initiallyHidden),
-                HideMethod.UVTileDiscard =>
-                    UVTileDiscardHider.Apply(target, root, initiallyHidden, tileIndex, tileRenderers),
-                _ => BlendShapeHider.Apply(
-                    target, root, initiallyHidden, method == HideMethod.BlendShapeAxis),
-            };
         }
 
         private static Bounds ComputeUnionBounds(IEnumerable<SkinnedMeshRenderer> renderers, Transform rootBone)
@@ -248,9 +190,6 @@ namespace Kie.MergeableToggle.Editor
 
                     clip.SetFloatCurve(binding, mapped);
                 }
-
-                foreach (var (binding, value) in plan.Constant)
-                    clip.SetFloatCurve(binding, AnimationCurve.Constant(0, 1, value));
 
                 clip.SetFloatCurve(oldBinding, null);
             });
