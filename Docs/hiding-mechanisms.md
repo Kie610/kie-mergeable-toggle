@@ -163,6 +163,11 @@ Renderer にも消費される PB は、単独・共有とも保守側へ倒し�
 ボーンとポリゴンは変換なしと同値、つまりアバター素のまま。退役した NaNimation は
 同条件でボーンが 272→469 / 453→933 に増えていた。
 
+この表の MatSlots は SkinnedMeshRenderer と MeshRenderer を合算している。現行の
+`MTPbE2E` は SkinnedMeshRenderer だけを数えるため、同じビルドでも Shinano 5 /
+MUMUS_all 16 と出る。差は各アバターが 1 個だけ持つ MeshRenderer のぶん
+(Shinano 1 スロット、MUMUS_all 2 スロット) で、統合結果そのものは変わっていない。
+
 Play (Av3Emulator) と PC 実機でも、トグル往復・初期非表示・カリング・ランク表示に
 問題が無いことを確認済み (2026-08-25)。**Quest (モバイル GPU) は未検証。**
 

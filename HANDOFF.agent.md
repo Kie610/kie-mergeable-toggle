@@ -38,7 +38,7 @@ verified:
 - C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -executeMethod MTPbPerf.Run; environment=Unity 2022.3.22f1 batchmode Play/DevProject/Av3Emulator (非ローカルクローン無し)/240 フレーム平均; scope=停止対象 PB を直接 enabled=false にして PhysBoneJob を keep/stop 3 回ずつ交互に実測。Shinano 10 本 35 ボーン停止で 2.523→1.874 ms (削減 0.649 ms・25.7%)、MUMUS_all 68 本 358 ボーン停止で 4.662→0.728 ms (削減 3.934 ms・84.4%)。keep のノイズ床は ±0.113 / ±0.085 ms で、いずれも桁違いに有意。wall も 4.76→4.44 / 6.57→5.54 ms と同方向。**全トグルを同時に隠した場合の上限値**。結果は DevProject/MTLabOut/pb_perf.txt; counts=passed=2, failed=0, skipped=0, not-run=0
 - C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=VRCSDK Build & Test (ユーザーが実施・目視報告); environment=VRChat クライアント PC 版/Shinano Variant; scope=PB 停止の実機動作。単一トグルで表示を切り替えている PB は期待どおり無効化されていた。アウター(Cloth_dress)とスカート(Cloth_skirt)で共有しているスカートボーンは、両方を非表示にしても無効化されなかった (仕様どおり。下記 Decisions の [U6])。再表示時の揺れ直しの見え方については報告なし; counts=passed=1, failed=0, skipped=0, not-run=0
 
-- C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTPbE2E.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 付与; scope=Shinano・MUMUS_all を disableSharedPhysBonesWhenHidden OFF/ON で実ビルドし比較。(1) AAO 統合結果 (SMR/MatSlots/Bones/Tris) が OFF/ON で完全一致 (Shinano SMR=2 MatSlots=5 Bones=272 / MUMUS SMR=4 MatSlots=16 Bones=453。MatSlots は 0.5.0 時点の記録 6/18 より減っているが OFF 側も同値なので本機能の影響ではない) (2) 停止集合 (カーブ+レイヤー) が独立センサスと末尾ボーン名多重集合で過不足 0 (3) レイヤー数=共有グループ数 (3+α)・AAP 数=オーナー数一致 (4) OFF 側に MT_PBStop / MT_Hidden が生成されない。結果は DevProject/MTLabOut/pb_e2e.txt; counts=passed=19, failed=0, skipped=0, not-run=0
+- C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTPbE2E.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 付与; scope=Shinano・MUMUS_all を disableSharedPhysBonesWhenHidden OFF/ON で実ビルドし比較。(1) AAO 統合結果 (SMR/MatSlots/Bones/Tris) が OFF/ON で完全一致 (Shinano SMR=2 MatSlots=5 Bones=272 / MUMUS SMR=4 MatSlots=16 Bones=453。MatSlots が 0.5.0 時点の記録 6/18 より少ないのは数えかたの違いで、原因は特定済み — 下の Decisions を見よ) (2) 停止集合 (カーブ+レイヤー) が独立センサスと末尾ボーン名多重集合で過不足 0 (3) レイヤー数=共有グループ数 (3+α)・AAP 数=オーナー数一致 (4) OFF 側に MT_PBStop / MT_Hidden が生成されない。結果は DevProject/MTLabOut/pb_e2e.txt; counts=passed=19, failed=0, skipped=0, not-run=0
 - C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -executeMethod MTPbPerf.Run; environment=Unity 2022.3.22f1 batchmode Play/DevProject/240 フレーム平均・3 回交互; scope=ON ビルドの停止対象を直接 disable して回収量を実測 (回収量計測は Animator の書き戻しと競合するため Av3Emulator 無し)。共有回収 (all−excl) は Shinano 0.608 ms (41.8%)・MUMUS_all 0.248 ms (67.8%)、excl のノイズ床 ±0.021/±0.002 で有意。レイヤー代償 (Av3Emulator 有り・全トグル可視での Animators.Update ON−OFF) は Shinano +0.007 ms (ノイズ以下)・MUMUS_all +0.053 ms (有意)。正味でも回収が代償を大きく上回る。Play 中の期待 enabled 状態は全構成で検証 PASS (誤停止 0。可視オーナーを持つ共有 PB は enabled のまま、全オーナー初期非表示のグループはレイヤーで停止)。結果は DevProject/MTLabOut/pb_perf.txt の 17:26 run; counts=passed=32, failed=0, skipped=0, not-run=0
 
 not-run:
@@ -85,6 +85,14 @@ not-run:
   resetWhenDisabled は触らない (どの値でも揺れ状態は保持されないことが 2026-08-13 に
   実測済みで、再表示はレスト位置からの揺れ直しになる。隠れていた衣装には自然な挙動
   として許容)
+- C: MatSlots の基準値 6/18 と現行 E2E の 5/16 の差は、**数えかたの違いだけ**
+  (2026-08-25 に静的解析で特定)。0.5.0 時点の InfinimationE2E は
+  `MaterialSlots += r.sharedMaterials.Length` を SkinnedMeshRenderer と MeshRenderer
+  の両方で回して合算していた。現行の `MTPbE2E` は
+  `smrs.Sum(r => r.sharedMaterials.Length)` で SkinnedMeshRenderer だけを数える。
+  Shinano・MUMUS_all はどちらも MeshRenderer を 1 個持ち (別計測の `MR=1` で確認)、
+  差 1 / 2 はそのスロット数と一致する。プレハブと Variant は当時のままで、統合結果も
+  同じ値である。`Docs/hiding-mechanisms.md` の表へ注記済み
 - C: [U6] 複数トグル共有 PB の停止は専用レイヤー方式で実装 (0.7.0-alpha、2026-08-25)。
   分類は `PhysBoneStopper.Classify` が全トグル同時に行い、単独所有は従来どおり
   隠蔽カーブへ相乗り、共有所有はオーナー集合ごとにグループ化する。レイヤーは
