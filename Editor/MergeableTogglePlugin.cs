@@ -3,7 +3,9 @@ using System.Linq;
 using nadena.dev.ndmf;
 using nadena.dev.ndmf.animator;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
+using VRC.SDK3.Avatars.Components;
 
 [assembly: ExportsPlugin(typeof(Kie.MergeableToggle.Editor.MergeableTogglePlugin))]
 
@@ -106,6 +108,31 @@ namespace Kie.MergeableToggle.Editor
                 var pbStopper = component.disablePhysBonesWhenHidden
                     ? PhysBoneStopper.Build(root.transform)
                     : null;
+                var pbClassification = pbStopper?.Classify(targets,
+                    binding => asc.AnimationIndex.GetClipsForBinding(binding).Any());
+                var sharedGroups = component.disableSharedPhysBonesWhenHidden && pbClassification != null
+                    ? SharedGroupsInFx(asc, pbClassification.Shared)
+                    : new List<PhysBoneStopper.SharedGroup>();
+                var sharedOwners = new HashSet<ToggleCandidate>(
+                    sharedGroups.SelectMany(group => group.Owners));
+                var sharedParameters = sharedOwners.ToDictionary(
+                    target => target,
+                    target => "MT_Hidden/" + target.Path);
+
+                VirtualAnimatorController fx = null;
+                if (sharedGroups.Count > 0)
+                {
+                    fx = asc.ControllerContext.Controllers[VRCAvatarDescriptor.AnimLayerType.FX];
+                    foreach (var owner in sharedOwners)
+                    {
+                        fx.SetParameter(sharedParameters[owner], new AnimatorControllerParameter
+                        {
+                            name = sharedParameters[owner],
+                            type = AnimatorControllerParameterType.Float,
+                            defaultFloat = owner.Object.activeSelf ? 0f : 1f,
+                        });
+                    }
+                }
                 var stoppedLog = new List<string>();
 
                 foreach (var target in targets)
@@ -123,18 +150,31 @@ namespace Kie.MergeableToggle.Editor
 
                     if (pbStopper != null)
                     {
-                        var stopped = pbStopper.AddStopBindings(target, plan,
-                            binding => asc.AnimationIndex.GetClipsForBinding(binding).Any());
-                        stoppedLog.AddRange(stopped.Select(p => $"  {target.Path} -> {p}"));
+                        foreach (var (path, binding) in pbClassification.Exclusive[target])
+                        {
+                            plan.Toggled.Add((binding, 1f, 0f));
+                            stoppedLog.Add($"  {target.Path} -> {path}");
+                        }
+
+                        if (sharedOwners.Contains(target))
+                        {
+                            plan.Toggled.Add((EditorCurveBinding.FloatCurve(
+                                "", typeof(Animator), sharedParameters[target]), 0f, 1f));
+                        }
                     }
 
                     target.Object.SetActive(true);
                     RewriteToggleCurves(asc, target.Path, plan);
                 }
 
+                if (sharedGroups.Count > 0)
+                    AddSharedPhysBoneLayers(fx, sharedGroups, sharedParameters, stoppedLog);
+
                 // 一覧(編集時)はビルド結果と一致しないので、何を止めたかはこのログが正
                 if (pbStopper != null)
-                    Debug.Log($"[MergeableToggle] stopping {stoppedLog.Count} armature-side PhysBones while hidden\n" +
+                    Debug.Log($"[MergeableToggle] stopping " +
+                              $"{pbClassification.Exclusive.Sum(kv => kv.Value.Count) + sharedGroups.Sum(g => g.PhysBones.Count)} " +
+                              "armature-side PhysBones while hidden\n" +
                               string.Join("\n", stoppedLog));
 
                 foreach (var renderer in targets.SelectMany(t => t.Renderers).Distinct())
@@ -148,6 +188,118 @@ namespace Kie.MergeableToggle.Editor
             {
                 Object.DestroyImmediate(component);
             }
+        }
+
+        /// <summary>
+        /// AAP は書き込まれたコントローラ内でしか値を駆動できないため、owner の
+        /// m_IsActive を持つ全クリップが FX に属するグループだけを残す。
+        /// </summary>
+        private static List<PhysBoneStopper.SharedGroup> SharedGroupsInFx(
+            AnimatorServicesContext asc, IEnumerable<PhysBoneStopper.SharedGroup> groups)
+        {
+            if (!asc.ControllerContext.Controllers.TryGetValue(
+                    VRCAvatarDescriptor.AnimLayerType.FX, out var fx))
+            {
+                foreach (var group in groups)
+                    Debug.LogWarning("[MergeableToggle] skipped shared PhysBone group because FX controller is missing: " +
+                                     string.Join(", ", group.Owners.Select(owner => owner.Path)));
+                return new List<PhysBoneStopper.SharedGroup>();
+            }
+
+            var fxClips = new HashSet<VirtualClip>(fx.AllReachableNodes().OfType<VirtualClip>());
+            var accepted = new List<PhysBoneStopper.SharedGroup>();
+            foreach (var group in groups)
+            {
+                var outsideFx = group.Owners.Where(owner =>
+                {
+                    var binding = EditorCurveBinding.FloatCurve(
+                        owner.Path, typeof(GameObject), "m_IsActive");
+                    var clips = asc.AnimationIndex.GetClipsForBinding(binding).ToList();
+                    return clips.Count == 0 || clips.Any(clip => !fxClips.Contains(clip));
+                }).ToList();
+
+                if (outsideFx.Count > 0)
+                {
+                    Debug.LogWarning(
+                        "[MergeableToggle] skipped shared PhysBone group because owner toggle clips are not all in FX: " +
+                        string.Join(", ", outsideFx.Select(owner => owner.Path)));
+                    continue;
+                }
+
+                accepted.Add(group);
+            }
+
+            return accepted;
+        }
+
+        private static void AddSharedPhysBoneLayers(
+            VirtualAnimatorController fx,
+            IReadOnlyList<PhysBoneStopper.SharedGroup> groups,
+            IReadOnlyDictionary<ToggleCandidate, string> parameters,
+            ICollection<string> stoppedLog)
+        {
+            for (var index = 0; index < groups.Count; index++)
+            {
+                var group = groups[index];
+                var layerName = $"MT_PBStop {index + 1}";
+                var activeClip = VirtualClip.Create(layerName + " Active");
+                var stoppedClip = VirtualClip.Create(layerName + " Stopped");
+                foreach (var (_, binding) in group.PhysBones)
+                {
+                    activeClip.SetFloatCurve(binding, SingleKeyCurve(1f));
+                    stoppedClip.SetFloatCurve(binding, SingleKeyCurve(0f));
+                }
+
+                // 他プラグインが正の優先度で追加したレイヤーよりも後ろへ置く。
+                var layer = fx.AddLayer(new LayerPriority(int.MaxValue), layerName);
+                layer.DefaultWeight = 1f;
+                var stateMachine = layer.StateMachine;
+                var active = stateMachine.AddState("Active", activeClip);
+                var stopped = stateMachine.AddState("Stopped", stoppedClip);
+                stateMachine.DefaultState = active;
+                active.WriteDefaultValues = true;
+                stopped.WriteDefaultValues = true;
+
+                var toStopped = VirtualStateTransition.Create();
+                toStopped.Duration = 0f;
+                toStopped.ExitTime = null;
+                toStopped.SetDestination(stopped);
+                foreach (var owner in group.Owners)
+                {
+                    toStopped.Conditions = toStopped.Conditions.Add(new AnimatorCondition
+                    {
+                        mode = AnimatorConditionMode.Greater,
+                        parameter = parameters[owner],
+                        threshold = 0.5f,
+                    });
+                }
+                active.Transitions = active.Transitions.Add(toStopped);
+
+                foreach (var owner in group.Owners)
+                {
+                    var toActive = VirtualStateTransition.Create();
+                    toActive.Duration = 0f;
+                    toActive.ExitTime = null;
+                    toActive.SetDestination(active);
+                    toActive.Conditions = toActive.Conditions.Add(new AnimatorCondition
+                    {
+                        mode = AnimatorConditionMode.Less,
+                        parameter = parameters[owner],
+                        threshold = 0.5f,
+                    });
+                    stopped.Transitions = stopped.Transitions.Add(toActive);
+                }
+
+                stoppedLog.Add($"  {layerName} -> owners: {string.Join(", ", group.Owners.Select(owner => owner.Path))}");
+                stoppedLog.Add($"  {layerName} -> PhysBones: {string.Join(", ", group.PhysBones.Select(pb => pb.path))}");
+            }
+        }
+
+        private static AnimationCurve SingleKeyCurve(float value)
+        {
+            var curve = new AnimationCurve();
+            curve.AddKey(new Keyframe(0f, value));
+            return curve;
         }
 
         private static Bounds ComputeUnionBounds(IEnumerable<SkinnedMeshRenderer> renderers, Transform rootBone)

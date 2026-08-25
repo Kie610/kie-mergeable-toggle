@@ -10,6 +10,11 @@ goal: 手書きのメッシュトグルを AAO が統合できる隠しかたへ
 ## State
 
 complete:
+- C: 複数トグルで共有する PhysBone の停止 (0.7.0-alpha、2026-08-25)。
+  `disableSharedPhysBonesWhenHidden` (既定 ON、公開契約へ追加)。所有トグル集合ごとに
+  FX へ `MT_PBStop <n>` レイヤーと `MT_Hidden/<トグルのパス>` ローカル float AAP を生成し、
+  全オーナーの AND で m_Enabled を 0 にする。オーナーのクリップが FX 外にもある
+  グループは保守側へスキップして警告。E2E 19 検査 PASS + Play 実測 (下の verified)
 - C: 隠した衣装の専用 PhysBone を止める機能 (0.6.0-alpha、2026-08-25)。`disablePhysBonesWhenHidden`
   (既定 ON、公開契約へ追加)。`PhysBoneStopper` がアーマチュア側 PB の帰属を保守判定し、
   隠蔽と同じカーブで m_Enabled を落とす。E2E 6 検査 PASS (下の verified)
@@ -30,7 +35,15 @@ verified:
 - C: 2026-08-25 — evidence: status=PASS; kind=build+runtime; command=Unity MCP 経由で Client.Resolve + RequestScriptCompilation → E2E 再実行 (Editor 占有中のため batchmode は未実施); environment=Unity 2022.3.22f1 Editor/DevProject; scope=1 本化後の再コンパイル (error 0 件。`Library/ScriptAssemblies` の DLL に InfinimationHider が在り MethodAdvisor / HideMethod が消えていることをバイナリ走査で確認) と、E2E の再実行で 1 本化前と同一の数値 (Shinano SMR 11→2・MatSlots 14→6・ボーン 272 / MUMUS_all SMR 21→4・MatSlots 36→18・ボーン 453、変換数 9 と 19); counts=passed=2, failed=0, skipped=0, not-run=0
 - C: 2026-08-25 — evidence: status=PASS; kind=build; command=Unity.exe -batchmode -quit -projectPath DevProject; environment=Unity 2022.3.22f1 batchmode (Editor を閉じた状態); scope=1 本化後の DevProject 全体のコンパイル。error CS 0 件、exit 0; counts=passed=1, failed=0, skipped=0, not-run=0
 
+- C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -executeMethod MTPbPerf.Run; environment=Unity 2022.3.22f1 batchmode Play/DevProject/Av3Emulator (非ローカルクローン無し)/240 フレーム平均; scope=停止対象 PB を直接 enabled=false にして PhysBoneJob を keep/stop 3 回ずつ交互に実測。Shinano 10 本 35 ボーン停止で 2.523→1.874 ms (削減 0.649 ms・25.7%)、MUMUS_all 68 本 358 ボーン停止で 4.662→0.728 ms (削減 3.934 ms・84.4%)。keep のノイズ床は ±0.113 / ±0.085 ms で、いずれも桁違いに有意。wall も 4.76→4.44 / 6.57→5.54 ms と同方向。**全トグルを同時に隠した場合の上限値**。結果は DevProject/MTLabOut/pb_perf.txt; counts=passed=2, failed=0, skipped=0, not-run=0
+- C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=VRCSDK Build & Test (ユーザーが実施・目視報告); environment=VRChat クライアント PC 版/Shinano Variant; scope=PB 停止の実機動作。単一トグルで表示を切り替えている PB は期待どおり無効化されていた。アウター(Cloth_dress)とスカート(Cloth_skirt)で共有しているスカートボーンは、両方を非表示にしても無効化されなかった (仕様どおり。下記 Decisions の [U6])。再表示時の揺れ直しの見え方については報告なし; counts=passed=1, failed=0, skipped=0, not-run=0
+
+- C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTPbE2E.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 付与; scope=Shinano・MUMUS_all を disableSharedPhysBonesWhenHidden OFF/ON で実ビルドし比較。(1) AAO 統合結果 (SMR/MatSlots/Bones/Tris) が OFF/ON で完全一致 (Shinano SMR=2 MatSlots=5 Bones=272 / MUMUS SMR=4 MatSlots=16 Bones=453。MatSlots は 0.5.0 時点の記録 6/18 より減っているが OFF 側も同値なので本機能の影響ではない) (2) 停止集合 (カーブ+レイヤー) が独立センサスと末尾ボーン名多重集合で過不足 0 (3) レイヤー数=共有グループ数 (3+α)・AAP 数=オーナー数一致 (4) OFF 側に MT_PBStop / MT_Hidden が生成されない。結果は DevProject/MTLabOut/pb_e2e.txt; counts=passed=19, failed=0, skipped=0, not-run=0
+- C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -executeMethod MTPbPerf.Run; environment=Unity 2022.3.22f1 batchmode Play/DevProject/240 フレーム平均・3 回交互; scope=ON ビルドの停止対象を直接 disable して回収量を実測 (回収量計測は Animator の書き戻しと競合するため Av3Emulator 無し)。共有回収 (all−excl) は Shinano 0.608 ms (41.8%)・MUMUS_all 0.248 ms (67.8%)、excl のノイズ床 ±0.021/±0.002 で有意。レイヤー代償 (Av3Emulator 有り・全トグル可視での Animators.Update ON−OFF) は Shinano +0.007 ms (ノイズ以下)・MUMUS_all +0.053 ms (有意)。正味でも回収が代償を大きく上回る。Play 中の期待 enabled 状態は全構成で検証 PASS (誤停止 0。可視オーナーを持つ共有 PB は enabled のまま、全オーナー初期非表示のグループはレイヤーで停止)。結果は DevProject/MTLabOut/pb_perf.txt の 17:26 run; counts=passed=32, failed=0, skipped=0, not-run=0
+
 not-run:
+- U: 再表示時にレスト位置から揺れ直す見え方が許容範囲か (実機の領分。未報告)
+- U: 共有 PB 停止の実機 (VRChat クライアント) 確認。Play モードでの機械検証は済み
 - U: U4 Quest 実機 (モバイル GPU で ∞ 頂点がどう扱われるか)。PC は 2026-08-25 に確認済み。**着手は最後**(下記 Decisions)
 - U: U5 εNaN ボーン方式は未着手のまま棚上げ (infinimation で足りたため。研究文書に設計案は残っている)
 
@@ -72,6 +85,18 @@ not-run:
   resetWhenDisabled は触らない (どの値でも揺れ状態は保持されないことが 2026-08-13 に
   実測済みで、再表示はレスト位置からの揺れ直しになる。隠れていた衣装には自然な挙動
   として許容)
+- C: [U6] 複数トグル共有 PB の停止は専用レイヤー方式で実装 (0.7.0-alpha、2026-08-25)。
+  分類は `PhysBoneStopper.Classify` が全トグル同時に行い、単独所有は従来どおり
+  隠蔽カーブへ相乗り、共有所有はオーナー集合ごとにグループ化する。レイヤーは
+  グループごとに `MT_PBStop <n>` (1 グループ 1 レイヤー、Active/Stopped の 2 状態、
+  WriteDefaults ON、AnyState 不使用、priority int.MaxValue で他プラグインより後ろ)。
+  条件は Active→Stopped が全オーナーの `MT_Hidden/<パス>` > 0.5 の AND 1 本、
+  Stopped→Active はオーナーごとの < 0.5 を OR (遷移を分ける)。AAP は各トグルの
+  隠蔽クリップへ visible=0 / hidden=1 で相乗りし、default はビルド時の activeSelf。
+  同期パラメータではないので Expression Parameters を消費しない。保守ガード:
+  オーナーの m_IsActive クリップが 1 つでも FX 外 (または未束縛) のグループは
+  スキップして警告 (AAP はコントローラをまたげないため)。既存の保守ガード 4 つは
+  Classify 内でそのまま全 PB へ適用
 - C: [U4] 検出精度は「一覧の正確さ」を追わず「ビルドログでの事後確認」を強化する側で
   確定 (2026-08-25)。一覧の完全化は原理的に不可能 (ビルド時生成ツールのぶんは編集時に
   存在しない) と README に明記済みのため。実装: 変換一覧のログに加えて、止めた PB の
@@ -79,10 +104,9 @@ not-run:
 
 ## Next
 
-1. Quest 実機での確認 (モバイル GPU の ∞ 頂点) — blocked-by: PC 版の機能充足
+1. 0.7.0-alpha の実機確認 (共有 PB 停止の VRChat クライアント動作) — blocked-by: ユーザー実施
+2. Quest 実機での確認 (モバイル GPU の ∞ 頂点) — blocked-by: PC 版の機能充足
    (ユーザー判断で最後に回す)
-2. PB 停止の実機確認 — 再表示時のレスト位置からの揺れ直しの見え方と、実 CPU 削減量の
-   計測 (機械検証は 0.6.0-alpha で済み。体感と数値は実機の領分) — blocked-by: none
 
 ## Paths
 
@@ -92,7 +116,17 @@ not-run:
 - C: `../../DevProject` — Unity 検証プロジェクト。新機構プローブは `Assets/_MTLab`、結果は `MTLabOut/`。**検証足場 (`Assets/_MTLab` と `MTLabOut/`) は 2026-08-25 に削除した** (ユーザー指示)。どちらも gitignore 対象で復元できないので、再検証が必要になったら書き直す。E2E は「対象アバターの複製へ `MergeableToggle` を付けて `AvatarProcessor.ProcessAvatar` し、SMR / マテリアルスロット / distinct ボーン / 三角形数を数えて変換なしと比べる」だけの 120 行程度のスクリプト。数値は HANDOFF の verified と `Docs/hiding-mechanisms.md` に転記済み。
   **PB 停止用の足場は 2026-08-25 に書き直した**: `Assets/_MTLab/Editor/MTPbCensus.cs`
   (帰属センサス + E2E 照合用の独立実装) と `MTPbE2E.cs` (OFF/ON ベイク比較)。
-  引き続き gitignore 対象なので、消えたら HANDOFF の判定仕様から再構築する
+  引き続き gitignore 対象なので、消えたら HANDOFF の判定仕様から再構築する。
+  **CPU 削減量の計測足場は 2026-08-25 に追加**: `Assets/_MTLab/Editor/MTPbPerf.cs`
+  (`_tools/perf-harness/PerfCompare.cs` が雛形。ON ビルドの停止対象を直接
+  `enabled=false` にして none/excl/all を交互に測り、レイヤー代償は可視状態の
+  OFF/ON で Animators.Update を比べる。Sampler は `Assets/_PerfProbeRuntime/Sampler.cs`、
+  Play 中の enabled 検証は同 `MTPbPerfParameterDriver.cs`)。結果は `MTLabOut/pb_perf.txt`。
+  再構築時の注意 3 つ: (1) census のパスは AAO MergeBone の `$` 改名でビルド後に
+  引けないので、変換前に PB 参照へ解決して生死で追跡する (2) 回収量計測は
+  Av3Emulator を載せない (FX の m_Enabled 書き戻しと直接 disable が競合する)
+  (3) emulator の Mirror/Shadow クローンは VRCPhysBone を破棄した複製なので、
+  FindObjectsOfType でドライバを拾うときはクローンを除外する
 
 ## Resume protocol
 

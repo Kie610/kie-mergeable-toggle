@@ -46,6 +46,14 @@ namespace Kie.MergeableToggle
         /// </summary>
         public bool disablePhysBonesWhenHidden = true;
 
+        /// <summary>
+        /// 複数のトグルで共有されるアーマチュア側 PhysBone も、所有トグルが全部
+        /// 非表示のときに止める。専用のレイヤーとアニメーターパラメータを FX へ生成する
+        /// (同期パラメータは使わないので Expression Parameters は消費しない)。
+        /// disablePhysBonesWhenHidden が OFF のときは効果なし。
+        /// </summary>
+        public bool disableSharedPhysBonesWhenHidden = true;
+
         /// <summary>変換から除外するトグル対象のパス(クリーン候補はデフォルトで変換対象)</summary>
         public List<string> excludedPaths = new List<string>();
 

@@ -17,8 +17,9 @@ kieMergeableToggle（`com.kie.kie-mergeable-toggle`）のリポジトリ。**こ
 
 - コンポーネント `MergeableToggle`（`Runtime/MergeableToggle.cs`）とそのフィールド名
   （`enableConversion` / `disableComponentsWhenHidden` / `disablePhysBonesWhenHidden` /
-  `excludedPaths` / `forceIncludedPaths`）
-- ビルド後の生成物の形（`MT_Hide_…` ブレンドシェイプと `blendShape.` カーブによる隠しかた）
+  `disableSharedPhysBonesWhenHidden` / `excludedPaths` / `forceIncludedPaths`）
+- ビルド後の生成物の形（`MT_Hide_…` ブレンドシェイプと `blendShape.` カーブによる
+  隠しかた、共有 PB 停止用の `MT_PBStop` レイヤーと `MT_Hidden/…` パラメータ）
 - パッケージ ID `com.kie.kie-mergeable-toggle`
 
 内部実装（`Editor/` のクラス構成、走査の順序、貪欲セットカバーの詰め方）は自由に変えてよい。

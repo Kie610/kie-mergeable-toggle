@@ -103,6 +103,17 @@ namespace Kie.MergeableToggle.Editor
                     "その衣装だけが使っているアーマチュア側の PhysBone を、隠すのと同じ" +
                     "タイミングで無効化します。素体と共有しているボーン (胸・尻尾など) は" +
                     "止めません。何を止めたかはビルドログに出ます。"));
+
+            using (new EditorGUI.DisabledScope(!_component.disablePhysBonesWhenHidden))
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(
+                    serializedObject.FindProperty("disableSharedPhysBonesWhenHidden"),
+                    new GUIContent("複数トグル共有 PhysBone も止める",
+                        "複数の衣装トグルに共有される PhysBone を、所有するトグルが全部" +
+                        "非表示のときだけ止めます。FX に専用レイヤーとローカルパラメータを生成します。"));
+                EditorGUI.indentLevel--;
+            }
         }
 
         private bool IsIncluded(ToggleCandidate candidate)

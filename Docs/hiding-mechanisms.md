@@ -134,6 +134,23 @@ Write Defaults ON は「レイヤーが触っていないプロパティを、�
 シリアライズ値へ書き戻す」挙動。書き戻し先が我々の仕込んだ値そのものなので、
 WD ON でも初期非表示は保たれる。
 
+## PhysBone の停止
+
+`disablePhysBonesWhenHidden` は、チェーンを消費する全 Renderer が変換対象トグルで
+隠れるアーマチュア側 PhysBone だけを停止する。単独トグル所有なら、そのトグルの
+隠蔽カーブへ `VRCPhysBone.m_Enabled` の 1⇔0 を追加する。
+
+`disableSharedPhysBonesWhenHidden` は、複数トグルで共有される PB を所有トグル集合ごとに
+まとめ、FX の末尾へ `MT_PBStop <n>` レイヤーを作る。各 owner の
+`MT_Hidden/<トグルのパス>` AAP がすべて 0.5 より大きいと `Stopped` へ入り、いずれかが
+0.5 より小さくなると `Active` へ戻る。両ステートは Write Defaults ON、遷移時間 0。
+パラメータは同期せず、Expression Parameters を消費しない。
+
+AAP は同じ AnimatorController の中でしか駆動できないため、owner の `m_IsActive`
+クリップが 1 本でも FX 以外に属するグループは生成しない。編集時無効、既存の
+`m_Enabled` アニメーション、同一 GameObject の複数 PB、消費者なし、変換対象外の
+Renderer にも消費される PB は、単独・共有とも保守側へ倒して触らない。
+
 ## 実測 (AAO 込み、Unity 2022.3.22f1)
 
 | アバター | 構成 | SMR | MatSlots | Bones | Tris |

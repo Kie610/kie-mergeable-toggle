@@ -12,9 +12,9 @@ namespace Kie.MergeableToggle.Editor
     ///
     /// 判定(保守側): PB のチェーン(rootTransform の子孫 − ignoreTransforms 部分木。
     /// root 自身は動かないので含めない)の消費者(ウェイト &gt; 0 の SMR + チェーン配下の
-    /// 全 Renderer)が、空でなく、かつ全部そのトグルの隠蔽対象に含まれること。
+    /// 全 Renderer)が空でなく、かつ全部いずれかの所有トグルの隠蔽対象に含まれること。
     /// 迷う要素があれば止めない側へ倒す:
-    /// - 消費者が 1 つでもトグルの外に居れば止めない(素体と共有する胸・スカート等)
+    /// - 消費者が 1 つでも全所有トグルの外に居れば止めない(素体と共有する胸等)
     /// - 消費者が空の PB は止めない(何のためにあるか分からないものへ触らない)
     /// - 編集時に無効な PB は触らない(作者が静的に切った状態を尊重する)
     /// - m_Enabled が既にアニメーションされている PB は触らない(他ギミックとの競合回避)
@@ -26,6 +26,24 @@ namespace Kie.MergeableToggle.Editor
     /// </summary>
     internal sealed class PhysBoneStopper
     {
+        internal sealed class SharedGroup
+        {
+            public readonly List<ToggleCandidate> Owners;
+            public readonly List<(string path, EditorCurveBinding binding)> PhysBones = new();
+
+            public SharedGroup(IEnumerable<ToggleCandidate> owners)
+            {
+                Owners = owners.ToList();
+            }
+        }
+
+        internal sealed class Classification
+        {
+            public readonly Dictionary<ToggleCandidate, List<(string path, EditorCurveBinding binding)>> Exclusive
+                = new();
+            public readonly List<SharedGroup> Shared = new();
+        }
+
         private readonly Transform _root;
         private readonly List<VRCPhysBone> _physBones;
         private readonly HashSet<Transform> _multiPbObjects;
@@ -83,36 +101,61 @@ namespace Kie.MergeableToggle.Editor
         }
 
         /// <summary>
-        /// このトグルで止められる PB の m_Enabled バインディングを plan へ足し、
-        /// 止めた PB のパスを返す。
+        /// 全トグルを同時に見て、単独所有と共有所有へ分類する。
+        /// AnimationIndex の競合判定は、この結果からカーブを追加する前に全件済ませる。
         /// </summary>
-        public List<string> AddStopBindings(ToggleCandidate target, HidePlan plan,
+        public Classification Classify(IReadOnlyList<ToggleCandidate> targets,
             System.Func<EditorCurveBinding, bool> isEnabledAlreadyAnimated)
         {
-            var hidden = new HashSet<Renderer>(
-                target.Object.GetComponentsInChildren<Renderer>(true));
-            var stopped = new List<string>();
+            var hiddenByTarget = targets.ToDictionary(
+                target => target,
+                target => new HashSet<Renderer>(
+                    target.Object.GetComponentsInChildren<Renderer>(true)));
+            var groups = new Dictionary<string, SharedGroup>();
+            var result = new Classification();
+            foreach (var target in targets)
+                result.Exclusive[target] = new List<(string, EditorCurveBinding)>();
 
             foreach (var pb in _physBones)
             {
-                // 対象サブツリー内の PB は disableComponentsWhenHidden の領分
-                if (pb.transform.IsChildOf(target.Object.transform)) continue;
                 if (!pb.enabled) continue;
                 if (_multiPbObjects.Contains(pb.transform)) continue;
 
                 var consumers = ConsumersOf(pb);
                 if (consumers.Count == 0) continue;
-                if (!consumers.All(hidden.Contains)) continue;
+
+                var owners = targets
+                    .Where(target => consumers.Any(hiddenByTarget[target].Contains))
+                    .ToList();
+                if (owners.Count == 0) continue;
+
+                var covered = new HashSet<Renderer>();
+                foreach (var owner in owners) covered.UnionWith(hiddenByTarget[owner]);
+                if (!consumers.All(covered.Contains)) continue;
+
+                // 対象サブツリー内の PB は disableComponentsWhenHidden の領分。
+                // 単独所有では旧 AddStopBindings と同じ条件になる。
+                if (owners.Any(owner => pb.transform.IsChildOf(owner.Object.transform))) continue;
 
                 var path = AnimationUtility.CalculateTransformPath(pb.transform, _root);
                 var binding = EditorCurveBinding.FloatCurve(path, typeof(VRCPhysBone), "m_Enabled");
                 if (isEnabledAlreadyAnimated(binding)) continue;
 
-                plan.Toggled.Add((binding, 1f, 0f));
-                stopped.Add(path);
+                if (owners.Count == 1)
+                {
+                    result.Exclusive[owners[0]].Add((path, binding));
+                }
+                else
+                {
+                    var key = string.Join("\n", owners.Select(owner => owner.Path).OrderBy(x => x));
+                    if (!groups.TryGetValue(key, out var group))
+                        groups[key] = group = new SharedGroup(owners);
+                    group.PhysBones.Add((path, binding));
+                }
             }
 
-            return stopped;
+            result.Shared.AddRange(groups.OrderBy(group => group.Key).Select(group => group.Value));
+            return result;
         }
 
         private HashSet<Renderer> ConsumersOf(VRCPhysBone pb)
