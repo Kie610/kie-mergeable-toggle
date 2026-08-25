@@ -45,10 +45,12 @@ verified:
 
 - C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTGuardLab.Run / MTPbE2E.Run; environment=Unity 2022.3.22f1 batchmode/DevProject; scope=合成アバター `MTGuardLab` で保守分岐を実行検証。(1) 落とせない Renderer を消費者に持つ PB を停止しない (2) 初期非表示のとき AudioSource と PB がシリアライズ時点で enabled=false (3) 同一 GameObject に同型複数は無効化しない (4) m_Enabled が既にアニメーション済みは無効化しない (5) インスペクタのクリーン判定とビルド時の扱いが 4 構成とも矛盾しない (6) スキップ理由がビルドログの警告へ出る。あわせて `MTPbCensus` をパッケージの現行ガードへ独立実装で追随させ、実アバター 2 体の E2E が同じ期待値 (census 28 / 75) で通ることを確認。結果は DevProject/MTLabOut/guard_lab.txt と pb_e2e.txt; counts=passed=34, failed=0, skipped=0, not-run=0
 
+- C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=VRChat クライアント Quest 版でのアップロードと目視 (ユーザーが実施・報告); environment=DevProjectQuest (Unity 2022.3.22f1 / Android) でビルドした Milfy_QuestMobile + 検証用 MT_TestBox; scope=**U4 モバイル GPU での ∞ 頂点の扱い**。トグル対象 (MT_TestBox・SmartPhone) がきちんと消えることを確認。常時表示の Body は無傷。ビルド前の機械検査は 4 項目 PASS (Humanoid / トグル候補 2 件 clean / 両対象に +Infinity 隠蔽シェイプ / 全マテリアル Quest 対応シェーダ)、結果は DevProjectQuest/MTQuestLabOut/milfy_quest.txt。**カリングと Performance ランクは未報告**; counts=passed=1, failed=0, skipped=0, not-run=0
+
 not-run:
 - U: 再表示時にレスト位置から揺れ直す見え方が許容範囲か (実機の領分。未報告)
 - U: 共有 PB 停止の実機 (VRChat クライアント) 確認。Play モードでの機械検証は済み
-- U: U4 Quest 実機 (モバイル GPU で ∞ 頂点がどう扱われるか)。PC は 2026-08-25 に確認済み。**着手は最後**(下記 Decisions)
+- U: Quest 実機での遠近カリングと Performance ランク表示。∞ 頂点そのものは 2026-08-25 に確認済み
 - U: U5 εNaN ボーン方式は未着手のまま棚上げ (infinimation で足りたため。研究文書に設計案は残っている)
 
 ## Decisions
