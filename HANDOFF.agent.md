@@ -43,11 +43,9 @@ verified:
 
 - C: 2026-08-25 — evidence: status=PASS; kind=build+runtime; command=Unity.exe -batchmode -quit -executeMethod MTPbE2E.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 付与; scope=Codex による全ソースレビュー 2 巡 (1 巡目 8 件・2 巡目 4 件) の指摘をすべて修正したあとの回帰。error CS 0 件、E2E 19 PASS / 0 FAIL、統合結果は修正前と同値 (Shinano SMR=2 MatSlots=5 Bones=272 Tris=137438 / MUMUS_all SMR=4 MatSlots=16 Bones=453 Tris=229953)。スキップ警告がビルドログへ出ることも確認。**修正 5 (隠れる消費者の絞り込み) と修正 6 (初期非表示のコンポーネント無効化) の新しい保守分岐は、この 2 体では踏まれていない**; counts=passed=19, failed=0, skipped=0, not-run=0
 
+- C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTGuardLab.Run / MTPbE2E.Run; environment=Unity 2022.3.22f1 batchmode/DevProject; scope=合成アバター `MTGuardLab` で保守分岐を実行検証。(1) 落とせない Renderer を消費者に持つ PB を停止しない (2) 初期非表示のとき AudioSource と PB がシリアライズ時点で enabled=false (3) 同一 GameObject に同型複数は無効化しない (4) m_Enabled が既にアニメーション済みは無効化しない (5) インスペクタのクリーン判定とビルド時の扱いが 4 構成とも矛盾しない (6) スキップ理由がビルドログの警告へ出る。あわせて `MTPbCensus` をパッケージの現行ガードへ独立実装で追随させ、実アバター 2 体の E2E が同じ期待値 (census 28 / 75) で通ることを確認。結果は DevProject/MTLabOut/guard_lab.txt と pb_e2e.txt; counts=passed=34, failed=0, skipped=0, not-run=0
+
 not-run:
-- U: レビュー修正で足した保守分岐の実行検証。「落とせない Renderer を含むトグル」
-  「初期非表示 + Play On Awake のパーティクル」「同一 GameObject に同型複数」
-  「m_Enabled が既にアニメーション済み」を含む合成アバターが要る。実アバター 2 体では
-  どの分岐も踏まない
 - U: 再表示時にレスト位置から揺れ直す見え方が許容範囲か (実機の領分。未報告)
 - U: 共有 PB 停止の実機 (VRChat クライアント) 確認。Play モードでの機械検証は済み
 - U: U4 Quest 実機 (モバイル GPU で ∞ 頂点がどう扱われるか)。PC は 2026-08-25 に確認済み。**着手は最後**(下記 Decisions)
