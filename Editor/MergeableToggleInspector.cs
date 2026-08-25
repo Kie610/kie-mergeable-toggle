@@ -23,6 +23,8 @@ namespace Kie.MergeableToggle.Editor
         public override void OnInspectorGUI()
         {
             _component = (MergeableToggle)target;
+            _component.excludedPaths ??= new List<string>();
+            _component.forceIncludedPaths ??= new List<string>();
             serializedObject.Update();
 
             EditorGUILayout.PropertyField(

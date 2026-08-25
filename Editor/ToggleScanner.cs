@@ -105,14 +105,18 @@ namespace Kie.MergeableToggle.Editor
         {
             var root = descriptor.transform;
             var pathToClips = new Dictionary<string, List<string>>();
+            var animatedEnabledBindings = new HashSet<(string path, Type type)>();
 
             foreach (var (clip, prefix) in EnumerateClips(descriptor))
             {
                 foreach (var binding in AnimationUtility.GetCurveBindings(clip))
                 {
+                    var path = prefix + binding.path;
+                    if (binding.propertyName == "m_Enabled")
+                        animatedEnabledBindings.Add((path, binding.type));
+
                     if (binding.type != typeof(GameObject) || binding.propertyName != "m_IsActive") continue;
 
-                    var path = prefix + binding.path;
                     if (string.IsNullOrEmpty(path)) continue; // ルート自身は対象外
 
                     if (!pathToClips.TryGetValue(path, out var clips))
@@ -148,7 +152,9 @@ namespace Kie.MergeableToggle.Editor
                     Object = target.gameObject,
                     Renderers = renderers,
                     SourceClips = clips,
-                    Warnings = CollectWarnings(target, componentsWillBeDisabled),
+                    Warnings = CollectWarnings(
+                        target, root, componentsWillBeDisabled,
+                        binding => animatedEnabledBindings.Contains((binding.path, binding.type))),
                     Label = clips
                         .Where(c => clipUsers[c] == 1)
                         .Select(c => clipLabels.TryGetValue(c, out var l) ? l : null)
@@ -248,7 +254,9 @@ namespace Kie.MergeableToggle.Editor
         /// 「m_IsActive がアニメーションされているか」を問い合わせて候補を組み立てる。
         /// </summary>
         public static List<ToggleCandidate> ScanHierarchy(
-            Transform root, System.Func<string, bool> isActivenessAnimated, bool componentsWillBeDisabled = true)
+            Transform root, Func<string, bool> isActivenessAnimated,
+            Func<EditorCurveBinding, bool> isEnabledAlreadyAnimated,
+            bool componentsWillBeDisabled = true)
         {
             var result = new List<ToggleCandidate>();
             foreach (var transform in root.GetComponentsInChildren<Transform>(true))
@@ -268,7 +276,8 @@ namespace Kie.MergeableToggle.Editor
                     Path = path,
                     Object = transform.gameObject,
                     Renderers = renderers,
-                    Warnings = CollectWarnings(transform, componentsWillBeDisabled),
+                    Warnings = CollectWarnings(
+                        transform, root, componentsWillBeDisabled, isEnabledAlreadyAnimated),
                 });
             }
 
@@ -336,25 +345,47 @@ namespace Kie.MergeableToggle.Editor
         /// コンポーネント無効化が有効なら、m_Enabled を持つものは非表示中に一緒に
         /// 落ちるので警告にしない。落とせないものだけが残る。
         /// </summary>
-        private static List<string> CollectWarnings(Transform target, bool componentsWillBeDisabled)
+        private static List<string> CollectWarnings(
+            Transform target, Transform root, bool componentsWillBeDisabled,
+            Func<EditorCurveBinding, bool> isEnabledAlreadyAnimated)
         {
             var warnings = new List<string>();
-            foreach (var component in target.GetComponentsInChildren<Component>(true))
+            var components = target.GetComponentsInChildren<Component>(true);
+            if (components.Any(component => component == null)) warnings.Add("Missing Script");
+
+            var groups = components
+                .Where(component => component != null)
+                .Where(component => component is not Transform
+                                    && component is not SkinnedMeshRenderer
+                                    && component is not IEditorOnly)
+                .Select(component => (
+                    component,
+                    path: AnimationUtility.CalculateTransformPath(component.transform, root),
+                    type: component.GetType()))
+                .GroupBy(item => (item.path, item.type));
+
+            foreach (var group in groups)
             {
-                switch (component)
+                var items = group.ToList();
+                foreach (var item in items)
                 {
-                    case null:
-                        if (!warnings.Contains("Missing Script")) warnings.Add("Missing Script");
-                        continue;
-                    case Transform:
-                    case SkinnedMeshRenderer:
-                    case IEditorOnly:
-                        continue;
-                    default:
-                        if (componentsWillBeDisabled && ComponentDisabler.CanDisable(component)) continue;
-                        var name = component.GetType().Name;
+                    var name = item.type.Name;
+                    if (!componentsWillBeDisabled)
+                    {
                         if (!warnings.Contains(name)) warnings.Add(name);
                         continue;
+                    }
+
+                    var status = ComponentDisabler.Analyze(
+                        item.component, item.path, items.Count, isEnabledAlreadyAnimated, out _);
+                    var warning = status switch
+                    {
+                        ComponentDisableStatus.DuplicateType => $"{name} (同型複数)",
+                        ComponentDisableStatus.AlreadyAnimated => $"{name} (m_Enabled アニメーション済み)",
+                        ComponentDisableStatus.MissingEnabledProperty => name,
+                        _ => null,
+                    };
+                    if (warning != null && !warnings.Contains(warning)) warnings.Add(warning);
                 }
             }
 

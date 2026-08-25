@@ -29,7 +29,7 @@ kieMergeableToggle（`com.kie.kie-mergeable-toggle`）のリポジトリ。**こ
 - `com.vrchat.avatars` ^3.7.0 / `nadena.dev.ndmf` ^1.14.0
 - **Modular Avatar への依存は持たない**（0.1.0-alpha で意図して外した）。MA 由来のトグルは
   検出対象だが、MA の型へコンパイル時依存を作らない
-- NDMF の `Transforming` フェーズで `BeforePlugin("nadena.dev.modular-avatar")` に入る
+- NDMF の `Transforming` フェーズで `AfterPlugin("nadena.dev.modular-avatar")` に入る
 
 ## Invariants
 

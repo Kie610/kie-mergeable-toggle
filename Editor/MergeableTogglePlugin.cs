@@ -64,9 +64,12 @@ namespace Kie.MergeableToggle.Editor
 
                 // アニメーターは既に仮想化されているため、AnimationIndex へ問い合わせて候補を出す
                 var asc = context.Extension<AnimatorServicesContext>();
+                System.Func<EditorCurveBinding, bool> isEnabledAlreadyAnimated =
+                    binding => asc.AnimationIndex.GetClipsForBinding(binding).Any();
                 var candidates = ToggleScanner.ScanHierarchy(root.transform, path =>
                         asc.AnimationIndex.GetClipsForBinding(
                             EditorCurveBinding.FloatCurve(path, typeof(GameObject), "m_IsActive")).Any(),
+                        isEnabledAlreadyAnimated,
                         component.disableComponentsWhenHidden)
                     .Where(c => c.IsClean ? !excluded.Contains(c.Path) : forced.Contains(c.Path))
                     .Where(c => c.Renderers.All(InfinimationHider.CanApply))
@@ -105,11 +108,41 @@ namespace Kie.MergeableToggle.Editor
                 var unionBounds = ComputeUnionBounds(
                     targets.SelectMany(t => t.Renderers).Distinct(), commonRootBone);
 
+                var initiallyHiddenByTarget = targets.ToDictionary(
+                    target => target, target => !target.Object.activeSelf);
+                var plans = new Dictionary<ToggleCandidate, HidePlan>();
+                var hiddenRenderersByTarget = new Dictionary<ToggleCandidate, HashSet<Renderer>>();
+
+                // PB の帰属判定より先に、実際に生成できる隠蔽・無効化バインディングを確定する。
+                foreach (var target in targets)
+                {
+                    var plan = InfinimationHider.Apply(
+                        target, root.transform, initiallyHiddenByTarget[target]);
+                    if (plan.IsEmpty)
+                    {
+                        Debug.LogWarning($"[MergeableToggle] '{target.Path}' produced no hide plan; left as-is");
+                        continue;
+                    }
+
+                    var hiddenRenderers = new HashSet<Renderer>(target.Renderers);
+                    if (component.disableComponentsWhenHidden)
+                    {
+                        hiddenRenderers.UnionWith(ComponentDisabler.AddDisableBindings(
+                            target, root.transform, plan, isEnabledAlreadyAnimated,
+                            initiallyHiddenByTarget[target]));
+                    }
+
+                    plans[target] = plan;
+                    hiddenRenderersByTarget[target] = hiddenRenderers;
+                }
+
+                var effectiveTargets = targets.Where(plans.ContainsKey).ToList();
+
                 var pbStopper = component.disablePhysBonesWhenHidden
                     ? PhysBoneStopper.Build(root.transform)
                     : null;
-                var pbClassification = pbStopper?.Classify(targets,
-                    binding => asc.AnimationIndex.GetClipsForBinding(binding).Any());
+                var pbClassification = pbStopper?.Classify(
+                    effectiveTargets, hiddenRenderersByTarget, isEnabledAlreadyAnimated);
                 var sharedGroups = component.disableSharedPhysBonesWhenHidden && pbClassification != null
                     ? SharedGroupsInFx(asc, pbClassification.Shared)
                     : new List<PhysBoneStopper.SharedGroup>();
@@ -117,7 +150,7 @@ namespace Kie.MergeableToggle.Editor
                     sharedGroups.SelectMany(group => group.Owners));
                 var sharedParameters = sharedOwners.ToDictionary(
                     target => target,
-                    target => "MT_Hidden/" + target.Path);
+                    SharedParameterName);
 
                 VirtualAnimatorController fx = null;
                 if (sharedGroups.Count > 0)
@@ -129,30 +162,22 @@ namespace Kie.MergeableToggle.Editor
                         {
                             name = sharedParameters[owner],
                             type = AnimatorControllerParameterType.Float,
-                            defaultFloat = owner.Object.activeSelf ? 0f : 1f,
+                            defaultFloat = initiallyHiddenByTarget[owner] ? 1f : 0f,
                         });
                     }
                 }
                 var stoppedLog = new List<string>();
 
-                foreach (var target in targets)
+                foreach (var target in effectiveTargets)
                 {
-                    var plan = InfinimationHider.Apply(
-                        target, root.transform, !target.Object.activeSelf);
-                    if (plan.IsEmpty)
-                    {
-                        Debug.LogWarning($"[MergeableToggle] '{target.Path}' produced no hide plan; left as-is");
-                        continue;
-                    }
-
-                    if (component.disableComponentsWhenHidden)
-                        ComponentDisabler.AddDisableBindings(target, root.transform, plan);
+                    var plan = plans[target];
 
                     if (pbStopper != null)
                     {
-                        foreach (var (path, binding) in pbClassification.Exclusive[target])
+                        foreach (var (path, binding, physBone) in pbClassification.Exclusive[target])
                         {
                             plan.Toggled.Add((binding, 1f, 0f));
+                            if (initiallyHiddenByTarget[target]) physBone.enabled = false;
                             stoppedLog.Add($"  {target.Path} -> {path}");
                         }
 
@@ -168,7 +193,8 @@ namespace Kie.MergeableToggle.Editor
                 }
 
                 if (sharedGroups.Count > 0)
-                    AddSharedPhysBoneLayers(fx, sharedGroups, sharedParameters, stoppedLog);
+                    AddSharedPhysBoneLayers(
+                        fx, sharedGroups, sharedParameters, initiallyHiddenByTarget, stoppedLog);
 
                 // 一覧(編集時)はビルド結果と一致しないので、何を止めたかはこのログが正
                 if (pbStopper != null)
@@ -207,22 +233,51 @@ namespace Kie.MergeableToggle.Editor
             }
 
             var fxClips = new HashSet<VirtualClip>(fx.AllReachableNodes().OfType<VirtualClip>());
+            var reachableOutsideFx = new HashSet<VirtualClip>(
+                asc.ControllerContext.Controllers
+                    .Where(controller => !Equals(
+                        controller.Key, VRCAvatarDescriptor.AnimLayerType.FX))
+                    .SelectMany(controller => controller.Value.AllReachableNodes().OfType<VirtualClip>()));
             var accepted = new List<PhysBoneStopper.SharedGroup>();
             foreach (var group in groups)
             {
-                var outsideFx = group.Owners.Where(owner =>
+                var notAllInFx = new List<ToggleCandidate>();
+                var alsoOutsideFx = new List<ToggleCandidate>();
+                foreach (var owner in group.Owners)
                 {
                     var binding = EditorCurveBinding.FloatCurve(
                         owner.Path, typeof(GameObject), "m_IsActive");
                     var clips = asc.AnimationIndex.GetClipsForBinding(binding).ToList();
-                    return clips.Count == 0 || clips.Any(clip => !fxClips.Contains(clip));
-                }).ToList();
+                    if (clips.Count == 0 || clips.Any(clip => !fxClips.Contains(clip)))
+                        notAllInFx.Add(owner);
+                    if (clips.Any(reachableOutsideFx.Contains))
+                        alsoOutsideFx.Add(owner);
+                }
 
-                if (outsideFx.Count > 0)
+                if (notAllInFx.Count > 0 || alsoOutsideFx.Count > 0)
+                {
+                    var reasons = new List<string>();
+                    if (notAllInFx.Count > 0)
+                        reasons.Add("owner toggle clips are not all in FX: " +
+                                    string.Join(", ", notAllInFx.Select(owner => owner.Path)));
+                    if (alsoOutsideFx.Count > 0)
+                        reasons.Add("a shared VirtualClip is reachable from a non-FX controller: " +
+                                    string.Join(", ", alsoOutsideFx.Select(owner => owner.Path)));
+                    Debug.LogWarning(
+                        "[MergeableToggle] skipped shared PhysBone group because " +
+                        string.Join("; ", reasons));
+                    continue;
+                }
+
+                var collidingParameters = group.Owners
+                    .Select(SharedParameterName)
+                    .Where(fx.Parameters.ContainsKey)
+                    .ToList();
+                if (collidingParameters.Count > 0)
                 {
                     Debug.LogWarning(
-                        "[MergeableToggle] skipped shared PhysBone group because owner toggle clips are not all in FX: " +
-                        string.Join(", ", outsideFx.Select(owner => owner.Path)));
+                        "[MergeableToggle] skipped shared PhysBone group because FX parameters already exist: " +
+                        string.Join(", ", collidingParameters));
                     continue;
                 }
 
@@ -232,10 +287,16 @@ namespace Kie.MergeableToggle.Editor
             return accepted;
         }
 
+        private static string SharedParameterName(ToggleCandidate target)
+        {
+            return "MT_Hidden/" + target.Path;
+        }
+
         private static void AddSharedPhysBoneLayers(
             VirtualAnimatorController fx,
             IReadOnlyList<PhysBoneStopper.SharedGroup> groups,
             IReadOnlyDictionary<ToggleCandidate, string> parameters,
+            IReadOnlyDictionary<ToggleCandidate, bool> initiallyHiddenByTarget,
             ICollection<string> stoppedLog)
         {
             for (var index = 0; index < groups.Count; index++)
@@ -256,7 +317,9 @@ namespace Kie.MergeableToggle.Editor
                 var stateMachine = layer.StateMachine;
                 var active = stateMachine.AddState("Active", activeClip);
                 var stopped = stateMachine.AddState("Stopped", stoppedClip);
-                stateMachine.DefaultState = active;
+                stateMachine.DefaultState = group.Owners.All(owner => initiallyHiddenByTarget[owner])
+                    ? stopped
+                    : active;
                 active.WriteDefaultValues = true;
                 stopped.WriteDefaultValues = true;
 
@@ -354,6 +417,8 @@ namespace Kie.MergeableToggle.Editor
                         mapped.AddKey(new Keyframe(key.time, 0)
                         {
                             value = key.value >= 0.5f ? visible : hidden,
+                            inTangent = float.PositiveInfinity,
+                            outTangent = float.PositiveInfinity,
                         });
                     }
 
