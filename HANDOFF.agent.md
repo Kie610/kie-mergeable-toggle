@@ -51,6 +51,7 @@ verified:
 
 not-run:
 - C: 2026-08-26 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTMergeKeys.Run; environment=Unity 2022.3.22f1 batchmode/DevProject; scope=**CustomBase で統合が進まない原因の特定**。AAO が動く直前 (MergeableToggle 有り・TraceAndOptimize 無しで最後まで build) の全 34 SMR について AAO 1.9.17 の CategorizationKey を実測。値が 2 種類以上あるキーは `rootBone` だけで、**変換された 6 個のみ `Armature/Hips`、他 28 個は `Armature/Hips/Hips_Const/Hips`**。bounds・probeAnchor・影・プローブ・UWO・HasNormals・quality・skinnedMotionVectors は一様。分身ボディが MERGE_0 へ入らないのは `RendererAnimationLocations` の差 (ハンドルは material._IsGrayScale がアニメーション、分身ボディは無し)。`Body` は MMD World Compatibility による保護。**シェーダ/マテリアル説は棄却** (AAO のキーに含まれず、APS 10 スロットを衣装マテリアルへ差し替えても SMR は 5 のまま・MatSlots のみ 10→8)。結果は DevProject/MTLabOut/merge_keys.txt と merge_matrix.txt; counts=passed=3, failed=0, skipped=0, not-run=0
+- C: 2026-08-26 — evidence: status=PASS(数値は下記); kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTMergeMatrix.Run / MTMergeKeys.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 1.9.17; scope=**rootBone 正規化見直し (0.8.0-alpha) の検証**。MTMergeKeys で CustomBase の CategorizationKey から rootBone の分割が消えた (2種類以上あるキー: なし)。MTMergeMatrix の aao+ms → mt+aao+ms は Shinano 11→2 (-9)・MUMUS_all 21→4 (-17) を維持、**CustomBase は 5→5 のまま** (残る壁は APS マテリアル起因。matswap で 5→4)。MTMergeMatrix の exit 1 は Shinano/MUMUS で matswap が差し替え 0 件 not-run になる構成欠落カウントで、退行ではない。結果は DevProject/MTLabOut/merge_matrix.txt・merge_keys.txt (rootbone_*.log); counts=passed=15(数値取得), failed=0, skipped=2(matswap not-run), not-run=0
 - U: 再表示時にレスト位置から揺れ直す見え方が許容範囲か (実機の領分。未報告)
 - U: 共有 PB 停止の実機 (VRChat クライアント) 確認。Play モードでの機械検証は済み
 - U: Quest 実機での遠近カリングと Performance ランク表示。∞ 頂点そのものは 2026-08-25 に確認済み
@@ -119,17 +120,20 @@ not-run:
   存在しない) と README に明記済みのため。実装: 変換一覧のログに加えて、止めた PB の
   「トグル -> PB パス」全件をビルドログへ出す。ToggleScanner・インスペクタ一覧は変更しない
 
-- U: [U7] `rootBone` 正規化の見直し (2026-08-26 に原因特定、未着手)。
-  `MergeableTogglePlugin.cs:208` が変換対象の `rootBone` を Humanoid の Hips
-  (`animator.GetBoneTransform(HumanBodyBones.Hips)`) へ固定している。AAO の
-  `CategorizationKey` を揃える目的で入れたものだが、**アバター内に別の合意が
-  既に成立している場合はそれを壊す**。CustomBase では APS が階層を張り替え、
-  他の全レンダラーが MA Mesh Settings で `Armature/Hips/Hips_Const/Hips` を
-  共有しているため、変換した 6 個だけが外れて統合が割れた。トグルによる分割を
-  1 つ解消して `rootBone` による分割を 1 つ作るので、正味の効果がゼロになる
-  (SMR 5 → 5)。方向としては「変換対象以外が共有している `rootBone` に合わせ、
-  無ければ従来どおり Hips へ倒す」。**`AGENTS.md` の Invariants に
-  「変換後は rootBone を Hips へ正規化する」と明記しているため、公開契約の変更**
+- C: [U7] `rootBone` の正規化先は「変換対象以外の SMR の最頻値」へ変更 (0.8.0-alpha、
+  2026-08-26)。従来の Humanoid Hips 固定は、アバター内に別の合意 (MA Mesh Settings 等)
+  が成立している場合にそれを壊し、CustomBase で統合を割っていた (2026-08-26 特定)。
+  選びかた: 変換対象以外の SMR (sharedMesh 有り・rootBone 非 null) の rootBone を
+  レンダラー 1 個 1 票の最頻値で採り、同数タイはパスの辞書順、1 つも無ければ従来どおり
+  Humanoid Hips → アバタールートへ倒す。localBounds は選んだ rootBone 空間で合併値を
+  計算する (従来と同じ関数の引数差し替え)。MA MeshSettingsPluginPass は MA 本体
+  シーケンス先頭で走り本パッケージは AfterPlugin(MA) なので、rootBone は本パッケージの
+  書き込みが最後 (ソース確認 + CustomBase の観測と整合)。
+  **CustomBase の SMR はこれだけでは減らない** (aao+ms 5 → mt+aao+ms 5 のまま)。
+  rootBone の分割は解消した (MTMergeKeys で一様を確認) が、変換した APS 6 個は互いに
+  統合されて 1 つになるだけで、衣装側の統合グループとは別のまま。マテリアルを衣装側へ
+  差し替える matswap 実験では 5→4 になるので、残る壁は APS のカメラモード用
+  マテリアル/シェーダ起因 (rootBone とは別問題。対処は未決)
 
 ## Next
 

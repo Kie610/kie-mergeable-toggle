@@ -100,10 +100,21 @@ namespace Kie.MergeableToggle.Editor
                           string.Join("\n", targets.Select(t => "  " + t.Path)));
                 if (targets.Count == 0) return;
 
-                // 正規化用の共通 rootBone と合併バウンズ(変換前の値で計算)
+                // 正規化用の共通 rootBone と合併バウンズ(変換前の値で計算)。
+                // アバター内に既に rootBone の合意が成立している場合 (MA Mesh Settings 等)、
+                // Hips へ固定するとその合意から外れて AAO の統合グループを割る (CustomBase で
+                // 実測)。変換対象以外の SMR の最頻値へ合わせ、無ければ Hips へ倒す。
                 var animator = root.GetComponent<Animator>();
-                var commonRootBone =
-                    (animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Hips) : null)
+                var convertedRenderers = new HashSet<SkinnedMeshRenderer>(
+                    targets.SelectMany(t => t.Renderers));
+                var consensusRootBone = root.GetComponentsInChildren<SkinnedMeshRenderer>(true)
+                    .Where(r => !convertedRenderers.Contains(r) && r.sharedMesh != null && r.rootBone != null)
+                    .GroupBy(r => r.rootBone)
+                    .OrderByDescending(g => g.Count())
+                    .ThenBy(g => AnimationUtility.CalculateTransformPath(g.Key, root.transform))
+                    .FirstOrDefault()?.Key;
+                var commonRootBone = consensusRootBone
+                    ?? (animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Hips) : null)
                     ?? root.transform;
                 var unionBounds = ComputeUnionBounds(
                     targets.SelectMany(t => t.Renderers).Distinct(), commonRootBone);

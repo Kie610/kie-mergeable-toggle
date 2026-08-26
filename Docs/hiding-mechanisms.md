@@ -69,7 +69,9 @@ Merge Animator が `Relative` のときはカーブパスがコンポーネン�
 - 候補の抽出と絞り込み (入れ子トグルは外側が優先、内側は落とす)
 - 対象を常時アクティブ化し、元の `m_IsActive` カーブを機構のバインディングへ書き換える
 - `rootBone` / `localBounds` / `updateWhenOffscreen` を正規化して AAO の
-  `CategorizationKey` を揃える (統合を可能にする本体)
+  `CategorizationKey` を揃える (統合を可能にする本体)。`rootBone` は変換対象以外の
+  SMR が最も多く共有している値へ合わせる (MA Mesh Settings 等でアバター内に既に
+  合意がある場合、そこへ参加する)。1 つも無ければ Humanoid の Hips へ倒す
 
 機構ごとの差分は `HidePlan` を返すバックエンドに閉じている。
 

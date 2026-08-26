@@ -33,9 +33,12 @@ kieMergeableToggle（`com.kie.kie-mergeable-toggle`）のリポジトリ。**こ
 
 ## Invariants
 
-- **AAO（Avatar Optimizer）の自動メッシュ統合を阻害しない。** 変換後は rootBone を Hips へ、
-  localBounds を合併値へ、`m_UpdateWhenOffscreen` を false へ正規化する。ここが揃わないと
-  AAO の `CategorizationKey` が一致せず、統合されない（これが本パッケージの存在理由）
+- **AAO（Avatar Optimizer）の自動メッシュ統合を阻害しない。** 変換後は rootBone を
+  変換対象以外の SMR の最頻値（無ければ Humanoid の Hips）へ、localBounds を合併値へ、
+  `m_UpdateWhenOffscreen` を false へ正規化する。ここが揃わないと AAO の
+  `CategorizationKey` が一致せず、統合されない（これが本パッケージの存在理由）。
+  Hips への固定はアバター内に既にある合意（MA Mesh Settings 等）を壊すため不可
+  （0.8.0-alpha で変更。CustomBase で実測）
 - **隠蔽シェイプのデルタは必ず `+Infinity` で作る。** NaN デルタは Unity が格納時に
   0 へ潰す（実測）
 - メッシュの改変は `Instantiate` + `RegisterReplacedObject` で非破壊に行う。元アセットを書き換えない
