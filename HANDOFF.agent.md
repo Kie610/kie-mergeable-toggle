@@ -47,7 +47,10 @@ verified:
 
 - C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=VRChat クライアント Quest 版でのアップロードと目視 (ユーザーが実施・報告); environment=DevProjectQuest (Unity 2022.3.22f1 / Android) でビルドした Milfy_QuestMobile + 検証用 MT_TestBox; scope=**U4 モバイル GPU での ∞ 頂点の扱い**。トグル対象 (MT_TestBox・SmartPhone) がきちんと消えることを確認。常時表示の Body は無傷。ビルド前の機械検査は 4 項目 PASS (Humanoid / トグル候補 2 件 clean / 両対象に +Infinity 隠蔽シェイプ / 全マテリアル Quest 対応シェーダ)、結果は DevProjectQuest/MTQuestLabOut/milfy_quest.txt。**カリングと Performance ランクは未報告**; counts=passed=1, failed=0, skipped=0, not-run=0
 
+- C: 2026-08-26 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTMergeMatrix.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 1.9.17; scope=**効きどころの実測**。5 構成 (raw / aao / mt+aao / aao+ms / mt+aao+ms) を 3 体でビルドし SMR 数を比較。MA Mesh Settings の有無を揃えた対 (aao+ms vs mt+aao+ms) での寄与は Shinano 11→2 (-9)、MUMUS_all 21→4 (-17)、Milfy CustomBase 5→5 (**±0**)。寄与はトグルされている SMR の数 (9 / 19 / 6) に対応し、SMR 総数 (15 / 23 / 34) では決まらない。CustomBase で寄与ゼロなのは変換の失敗ではない (統合後メッシュに隠蔽シェイプ blendShapes=1 を確認)。理由は未特定。結果は DevProject/MTLabOut/merge_matrix.txt; counts=passed=15, failed=0, skipped=0, not-run=0
+
 not-run:
+- C: 2026-08-26 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTMergeKeys.Run; environment=Unity 2022.3.22f1 batchmode/DevProject; scope=**CustomBase で統合が進まない原因の特定**。AAO が動く直前 (MergeableToggle 有り・TraceAndOptimize 無しで最後まで build) の全 34 SMR について AAO 1.9.17 の CategorizationKey を実測。値が 2 種類以上あるキーは `rootBone` だけで、**変換された 6 個のみ `Armature/Hips`、他 28 個は `Armature/Hips/Hips_Const/Hips`**。bounds・probeAnchor・影・プローブ・UWO・HasNormals・quality・skinnedMotionVectors は一様。分身ボディが MERGE_0 へ入らないのは `RendererAnimationLocations` の差 (ハンドルは material._IsGrayScale がアニメーション、分身ボディは無し)。`Body` は MMD World Compatibility による保護。**シェーダ/マテリアル説は棄却** (AAO のキーに含まれず、APS 10 スロットを衣装マテリアルへ差し替えても SMR は 5 のまま・MatSlots のみ 10→8)。結果は DevProject/MTLabOut/merge_keys.txt と merge_matrix.txt; counts=passed=3, failed=0, skipped=0, not-run=0
 - U: 再表示時にレスト位置から揺れ直す見え方が許容範囲か (実機の領分。未報告)
 - U: 共有 PB 停止の実機 (VRChat クライアント) 確認。Play モードでの機械検証は済み
 - U: Quest 実機での遠近カリングと Performance ランク表示。∞ 頂点そのものは 2026-08-25 に確認済み
@@ -115,6 +118,18 @@ not-run:
   確定 (2026-08-25)。一覧の完全化は原理的に不可能 (ビルド時生成ツールのぶんは編集時に
   存在しない) と README に明記済みのため。実装: 変換一覧のログに加えて、止めた PB の
   「トグル -> PB パス」全件をビルドログへ出す。ToggleScanner・インスペクタ一覧は変更しない
+
+- U: [U7] `rootBone` 正規化の見直し (2026-08-26 に原因特定、未着手)。
+  `MergeableTogglePlugin.cs:208` が変換対象の `rootBone` を Humanoid の Hips
+  (`animator.GetBoneTransform(HumanBodyBones.Hips)`) へ固定している。AAO の
+  `CategorizationKey` を揃える目的で入れたものだが、**アバター内に別の合意が
+  既に成立している場合はそれを壊す**。CustomBase では APS が階層を張り替え、
+  他の全レンダラーが MA Mesh Settings で `Armature/Hips/Hips_Const/Hips` を
+  共有しているため、変換した 6 個だけが外れて統合が割れた。トグルによる分割を
+  1 つ解消して `rootBone` による分割を 1 つ作るので、正味の効果がゼロになる
+  (SMR 5 → 5)。方向としては「変換対象以外が共有している `rootBone` に合わせ、
+  無ければ従来どおり Hips へ倒す」。**`AGENTS.md` の Invariants に
+  「変換後は rootBone を Hips へ正規化する」と明記しているため、公開契約の変更**
 
 ## Next
 
