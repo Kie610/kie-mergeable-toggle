@@ -3,7 +3,8 @@
 updated: 2026-08-30
 repo: D:/GitHub_WorkSpace/VRC/Packages/com.kie.kie-mergeable-toggle (origin = github.com/Kie610/kie-mergeable-toggle)
 work_branch: main
-upstream: origin/main (2026-08-25 に 0.5.0-alpha まで push 済み)
+upstream: origin/main = 6c3f1fc / package.json は 0.8.0-alpha (2026-08-30 に git fetch で実測)。
+  ローカルが 9 コミット先行しており、0.8.1-alpha と 0.8.2-alpha は未 push
 base: main@3907539
 goal: 手書きのメッシュトグルを AAO が統合できる隠しかたへ機械的に変換する
 
