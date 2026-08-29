@@ -259,8 +259,12 @@ not-run:
 ## Next
 
 1. Quest 実機での再確認 (デルタを有限値へ変えたので、∞ 前提の 2026-08-25 の確認は
-   取り直しになる) — blocked-by: ユーザー実施。目標 G (同 §8) はこれが済むまで着手しない
+   取り直しになる) — blocked-by: ユーザー実施
 2. 実機での体感確認 (再表示時にレスト位置から揺れ直す見え方が許容範囲か) — blocked-by: ユーザー実施
+3. Android で CPU/GPU どちらのスキニング経路を通るかの調査 (`Docs/perf-research-backlog.md` §8)。
+   目標 G はこれが CPU 経路だった場合にだけ意味を持つ。**Next 1 とは別の問いで、実機の
+   正しさ検査を待つ必要はない** (Android ビルドで `MeshSkinning.Skin` と
+   `MeshSkinning.GPUSkinning` のどちらが値を持つかを見るだけ)。後回しというユーザー判断 (2026-08-30)
 
 ## Paths
 
