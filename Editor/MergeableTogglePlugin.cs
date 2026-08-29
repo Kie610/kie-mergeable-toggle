@@ -116,9 +116,6 @@ namespace Kie.MergeableToggle.Editor
                 var commonRootBone = consensusRootBone
                     ?? (animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Hips) : null)
                     ?? root.transform;
-                var unionBounds = ComputeUnionBounds(
-                    targets.SelectMany(t => t.Renderers).Distinct(), commonRootBone);
-
                 var initiallyHiddenByTarget = targets.ToDictionary(
                     target => target, target => !target.Object.activeSelf);
                 var plans = new Dictionary<ToggleCandidate, HidePlan>();
@@ -147,7 +144,13 @@ namespace Kie.MergeableToggle.Editor
                     hiddenRenderersByTarget[target] = hiddenRenderers;
                 }
 
+                // 隠蔽計画を作れなかった候補は変換していないので、正規化からも外す。
+                // targets のままにすると、変換していないレンダラーの rootBone /
+                // localBounds / updateWhenOffscreen まで書き換えてしまう。
                 var effectiveTargets = targets.Where(plans.ContainsKey).ToList();
+                var normalizedRenderers = effectiveTargets
+                    .SelectMany(t => t.Renderers).Distinct().ToList();
+                var unionBounds = ComputeUnionBounds(normalizedRenderers, commonRootBone);
 
                 var pbStopper = component.disablePhysBonesWhenHidden
                     ? PhysBoneStopper.Build(root.transform)
@@ -214,7 +217,7 @@ namespace Kie.MergeableToggle.Editor
                               "armature-side PhysBones while hidden\n" +
                               string.Join("\n", stoppedLog));
 
-                foreach (var renderer in targets.SelectMany(t => t.Renderers).Distinct())
+                foreach (var renderer in normalizedRenderers)
                 {
                     renderer.rootBone = commonRootBone;
                     renderer.localBounds = unionBounds;

@@ -47,27 +47,14 @@ namespace Kie.MergeableToggle.Editor
         public bool IsClean => Warnings.Count == 0;
 
         /// <summary>
-        /// 一覧に出す名前。GameObject 名だけでは判別できない
+        /// 一覧に出す行名。GameObject 名だけでは判別できない
         /// (実アバターで 'HandleMesh' が 6 個並ぶ) ので、メニュー名を優先する。
         ///
         /// ただし 1 つのパラメータが複数オブジェクトを駆動していると、メニュー名でも
         /// 同名が並ぶ (実測: APS のハンドル 6 件がすべて 'ShowHandle')。
-        /// その場合と、そもそもラベルが無い場合は、区別が付くまで伸ばしたパス末尾を添える。
+        /// その場合と、そもそもラベルが無い場合は、区別が付くまで伸ばした末尾を添える。
         /// 段数を固定にすると足りない (実測: ペンライトの左右が 3 段上でしか分かれない)。
-        /// </summary>
-        public string DisplayName
-        {
-            get
-            {
-                var tail = Disambiguator ?? Path;
-                if (string.IsNullOrEmpty(Label)) return tail;
-                return LabelIsAmbiguous ? $"{Label}  ({tail})" : Label;
-            }
-        }
-
-        /// <summary>
-        /// グループ内で出す行名。グループ見出しが文脈を持つので、
-        /// ここではグループ根からの相対パスで足りる。
+        /// グループ見出しが文脈を持つので、末尾はグループ根からの相対パスで足りる。
         /// </summary>
         public string RowName
         {
