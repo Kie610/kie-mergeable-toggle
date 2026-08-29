@@ -1,6 +1,6 @@
 # Agent handoff v1
 
-updated: 2026-08-25
+updated: 2026-08-29
 repo: D:/GitHub_WorkSpace/VRC/Packages/com.kie.kie-mergeable-toggle (origin = github.com/Kie610/kie-mergeable-toggle)
 work_branch: main
 upstream: origin/main (2026-08-25 に 0.5.0-alpha まで push 済み)
@@ -49,11 +49,25 @@ verified:
 
 - C: 2026-08-26 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTMergeMatrix.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 1.9.17; scope=**効きどころの実測**。5 構成 (raw / aao / mt+aao / aao+ms / mt+aao+ms) を 3 体でビルドし SMR 数を比較。MA Mesh Settings の有無を揃えた対 (aao+ms vs mt+aao+ms) での寄与は Shinano 11→2 (-9)、MUMUS_all 21→4 (-17)、Milfy CustomBase 5→5 (**±0**)。寄与はトグルされている SMR の数 (9 / 19 / 6) に対応し、SMR 総数 (15 / 23 / 34) では決まらない。CustomBase で寄与ゼロなのは変換の失敗ではない (統合後メッシュに隠蔽シェイプ blendShapes=1 を確認)。理由は未特定。結果は DevProject/MTLabOut/merge_matrix.txt; counts=passed=15, failed=0, skipped=0, not-run=0
 
+- C: 2026-08-28 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTMergeGate.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 1.9.17; scope=**MUMUS_all が SMR 4 で止まる原因の特定**。AAO 自身の `AutoMergeSkinnedMesh.FilterMergeMeshes` / `CategoryMeshesForMerge` を NDMF パスから実物のまま呼び、3 体を「変換なし / MergeableToggle あり」の 2 構成で採取。**残る 4 個は `Body` (MMD World Compatibility 除外) / `Body_body` (`IsAnimatedForbidden` ← `object:m_Materials.Array.data[0]`) / `Body_hand` (同) / 統合結果 1 個**。変換ありでは足切り通過 18 個の CategorizationKey が 1 種類だけ (分割ゼロ)、変換なしでは同じ 18 個が全部単独グループで統合ゼロ。**19→1 は完全に本パッケージの寄与で、やり残しは無い**。予測 6 に対し実測 4 の差 2 は `Cos_EarRings` / `Cos_HairPin` で、足切り後に AAO の未使用オブジェクト削除で丸ごと消える (統合ではないので予測式の外)。Shinano は予測 2 = 実測 2、CustomBase は予測 7 / 実測 5 (同じく 2 個が削除)。結果は DevProject/MTLabOut/merge_gate.txt; counts=passed=6, failed=0, skipped=0, not-run=0
+
+- C: 2026-08-28 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTMergeGate.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 1.9.17; scope=**マテリアル差し替えを持つメッシュの扱い**。全 SMR のアニメーションされているプロパティを採取。PPtr 差し替え (`m_Materials.Array.data[N]`) を持つのは Shinano `Body` / MUMUS_all `Body_body`・`Body_hand` / CustomBase `Body_base` の 4 個で、**3 体を通して自動統合を通った例はゼロ** (それぞれ MMD 除外 / IsAnimatedForbidden / マルチパス+IsAnimatedForbidden で落ちる)。CustomBase `Body_base` は lilToon の `material._LightMinLimit` 等 29 個の float マテリアルプロパティも動かしており、AAO はこちらを許可する; counts=passed=3, failed=0, skipped=0, not-run=0
+
+- C: 2026-08-28 — evidence: status=PASS; kind=runtime; command=VRChat クライアント PC 版・PCVR でのアップロードと目視 (ユーザーが実施・報告); environment=Shinano_TEST (Shinano Variant + MergeableToggle + TraceAndOptimize); scope=**∞ デルタで自分視点が描画されない不具合の切り分け**。①素のアバター=正常 / ②TraceAndOptimize 単独=正常 / ③MergeableToggle 単独=**変換対象だけ消える**。鏡 (ミラークローン) は全構成で正常。隠蔽シェイプのウェイトを全部 0 (全表示) にしても消えたまま。ケモミミが視点位置によって出没。Desktop・PCVR とも同じ。Av3Emulator では再現しない; counts=passed=3, failed=0, skipped=0, not-run=0
+- C: 2026-08-28 — evidence: status=PASS; kind=runtime; command=VRChat クライアントでのアップロードと目視 + Unity.exe -batchmode -quit -executeMethod MTBuiltDump.Run; environment=同上 / Unity 2022.3.22f1 batchmode; scope=**修正の確認 (0.8.1-alpha)**。デルタを `1e6` へ変えたビルドで自分視点に表示されることを実機で確認。隠すべき衣装は消えており、視界に異物は出ない。手元の実測ではスキニング後の飛び先が距離 1,732,050 (=1e6×√3)、**散らばりは最大 8m** (Cloth_sweater) で巨大な三角形にはならない。角径はサブピクセルかつ遠クリップ面の外; counts=passed=2, failed=0, skipped=0, not-run=0
+- C: 2026-08-28 — evidence: status=PASS; kind=runtime; command=VRChat クライアント PC 版 (ユーザーが実施・報告); environment=Shinano_TEST; scope=**0.7.0-alpha の共有 PB 停止の実機確認**。共有している PB は、所有トグルが全部非表示になったときに無効化されていた; counts=passed=1, failed=0, skipped=0, not-run=0
+- C: 2026-08-29 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath DevProject -executeMethod MTVertexPerf.RunPass0 / .RunPass1 (GUI、batchmode 不可); environment=Unity 2022.3.22f1 GUI/DevProject/VRCSDK 3.10.4/AAO 1.9.17/MA 1.18.2、Shinano_TEST を 10 体・240 フレーム × **8 反復**、warmup 60、追加描画 8 回/フレーム、Av3Emulator 無し; scope=**隠している間も払う頂点段のコストと変換の収支**。A と B を同一反復の中で隣接して測り、反復ごとの d = B - A で判定 (|平均 d| > d の半レンジ かつ符号が全反復で揃う)。**有意差あり。全 6 条件 (2 skinning × 3 状態) で符号が揃った**。project-default のフレーム時間 (10 体・追加描画込み) は 全表示 d=-1.235 ms (noise 0.319、B が速い) / 半分隠す +2.503 (0.345) / 全隠し +3.353 (0.201)。CPU メインスレッドは -1.236 / -0.601 / +0.595 ms、MeshSkinning.GPUSkinning は -0.303 / -0.114 / +0.127 ms (すべて有意)。cpu-skinning 周回の `MeshSkinning.Skin` (フレーム 1 回・非増幅) は +11.07 / +26.77 / +34.41 ms、**隠していても払う頂点段は 1 体あたり約 3.4 ms/frame**。draw calls / batches は 4623→1743 / 3183→1743 / 1383→1743 で分散ゼロ。ジオメトリは 1 体あたり SMR 11→2、サブメッシュ 13→5、**マテリアルスロット 13→5** (異なるマテリアル数 5 まで束ねられる。同じマテリアルを別 SMR で持つ衣装のスロットが畳まれる)、頂点 86,203 は不変。**収支の分岐点はトグルの約 17%** (全表示と半分隠すの線形内挿)。画角の証拠は計測カメラの 2 枚レンダリング差分で全 96 条件フラスタム内 10/10 体・塗り面積 0.6〜1.0%。結果は DevProject/MTLabOut/vertex_perf_run6_final.txt (生値 vertex_perf_raw_run6_final.tsv); counts=passed=96, failed=0, skipped=0, not-run=0
+- C: 2026-08-29 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath DevProject -executeMethod MTSlotPerf.Run (GUI); environment=Unity 2022.3.22f1 GUI/DevProject、合成メッシュ (頂点 6,321 / 三角形 12,288 / ボーン 1 / 全スロット同一マテリアル)、10 体・240 フレーム × 8 反復・追加描画 32 回/フレーム; scope=**マテリアルスロット単価の実測 (目標 A)**。頂点数・三角形数・ボーン・マテリアルを固定し スロット数だけ 1/2/4/8/16 と変えた。判定は反復ごとの対の差。**スロット 1 個あたり CPU メインスレッド 0.172 ms、レンダースレッド 0.198 ms** (10 体・33 描画あたり。N=4〜16 で傾きが一定)。1 体・1 描画あたりに直すと 0.52 / 0.60 µs。SetPass Calls は ±0 (同一マテリアルのため)、draw calls は 990/スロットで分散ゼロ。wall frame time は N=16 でのみ有意 (0.056 ms/スロット) — CPU 増分がフレーム下限 約 7 ms に隠れるため。**本拡張のスロット削減 13→5 が説明するのは、run6 で観測した全表示時のメインスレッド短縮 (1 描画あたり 0.137 ms/10 体) のうち約 31% で、残り約 7 割は SMR 11→2 のレンダラー個数削減に由来する**。結果は DevProject/MTLabOut/slot_perf_run2_final.txt (生値 slot_perf_raw_run2_final.tsv); counts=passed=40, failed=0, skipped=0, not-run=0
+- C: 2026-08-29 — evidence: status=PASS(方法論); kind=runtime; command=同上を 3 回 (03:07 / 04:06 / 14:01); environment=同上; scope=**判定方法の欠陥と修正**。反復 3 回で「A の平均と B の平均の差」を見る方式だと、ラン間の機体状態のドリフト (同条件で wall 12.19 ms と 8.75 ms) が差へ混ざり、全表示の結論が run1 有意 / run2 判定不能 と割れた。A/B は同一反復で隣接して測っているので、**反復ごとの対の差を集める方式へ変えたところ 8 反復で全条件の符号が揃った**。以後の負荷比較はすべて対の差で判定する; counts=passed=3, failed=0, skipped=0, not-run=0
+
 not-run:
 - C: 2026-08-26 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTMergeKeys.Run; environment=Unity 2022.3.22f1 batchmode/DevProject; scope=**CustomBase で統合が進まない原因の特定**。AAO が動く直前 (MergeableToggle 有り・TraceAndOptimize 無しで最後まで build) の全 34 SMR について AAO 1.9.17 の CategorizationKey を実測。値が 2 種類以上あるキーは `rootBone` だけで、**変換された 6 個のみ `Armature/Hips`、他 28 個は `Armature/Hips/Hips_Const/Hips`**。bounds・probeAnchor・影・プローブ・UWO・HasNormals・quality・skinnedMotionVectors は一様。分身ボディが MERGE_0 へ入らないのは `RendererAnimationLocations` の差 (ハンドルは material._IsGrayScale がアニメーション、分身ボディは無し)。`Body` は MMD World Compatibility による保護。**シェーダ/マテリアル説は棄却** (AAO のキーに含まれず、APS 10 スロットを衣装マテリアルへ差し替えても SMR は 5 のまま・MatSlots のみ 10→8)。結果は DevProject/MTLabOut/merge_keys.txt と merge_matrix.txt; counts=passed=3, failed=0, skipped=0, not-run=0
 - C: 2026-08-26 — evidence: status=PASS(数値は下記); kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTMergeMatrix.Run / MTMergeKeys.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 1.9.17; scope=**rootBone 正規化見直し (0.8.0-alpha) の検証**。MTMergeKeys で CustomBase の CategorizationKey から rootBone の分割が消えた (2種類以上あるキー: なし)。MTMergeMatrix の aao+ms → mt+aao+ms は Shinano 11→2 (-9)・MUMUS_all 21→4 (-17) を維持、**CustomBase は 5→5 のまま** (残る壁は RendererAnimationLocations。matswap で 5→4)。MTMergeMatrix の exit 1 は Shinano/MUMUS で matswap が差し替え 0 件 not-run になる構成欠落カウントで、退行ではない。結果は DevProject/MTLabOut/merge_matrix.txt・merge_keys.txt (rootbone_*.log); counts=passed=15(数値取得), failed=0, skipped=2(matswap not-run), not-run=0
 - U: 再表示時にレスト位置から揺れ直す見え方が許容範囲か (実機の領分。未報告)
-- U: 共有 PB 停止の実機 (VRChat クライアント) 確認。Play モードでの機械検証は済み
+- U: ∞ で描画されなくなるクライアント側の機序。有限値で回避できたので追っていない
+- C: 収支の分岐点は 2026-08-29 の 8 反復・対の差で **約 17%** と実測 (上の verified)。エディタの構図での値であり、実機での再確認は残る
+- U: 実機 (VRChat クライアント) での再現確認。エディタ計測は 10 体を小さく並べた構図 (塗り面積 1%) なので、ピクセル段が支配的な実際の見えかたでは収支が変わり得る
+- U: 今後の負荷比較。**A は実測完了 (上の verified)**。残りは B = SMR の負荷要因の分解、C = lilToon の設定項目ごとの負荷、D = PhysBone の負荷要因。**いずれも実測は未着手**。計画は `Docs/perf-research-backlog.md`、C と D の机上調査は 2026-08-29 に Codex へ委任して `Docs/perf-research-liltoon.md` と `Docs/perf-research-physbone.md` に結果がある (Claude 側は未検証)
 - U: Quest 実機での遠近カリングと Performance ランク表示。∞ 頂点そのものは 2026-08-25 に確認済み
 - U: U5 εNaN ボーン方式は未着手のまま棚上げ (infinimation で足りたため。研究文書に設計案は残っている)
 
@@ -62,7 +76,7 @@ not-run:
 - C: MA Mesh Cutter を生成して MA に処理させる案 (方針B) は不成立 (2026-08-11、詳細は履歴)
 - C: Modular Avatar への依存は持たない (0.1.0-alpha で除去)
 - C: 変換後は rootBone→Hips / localBounds→合併値 / UWO→false へ正規化する
-- C: infinimation は NaN でなく必ず +∞ デルタで作る (Unity が NaN を 0 に潰す。実測)
+- C: infinimation のデルタは NaN 不可 (Unity が格納時に 0 に潰す。実測)。∞ も不可 (自分視点で描画されなくなる。2026-08-28 実機)。有限の遠方値 `1e6` で作る
 - C: `disableComponentsWhenHidden` は衣装の PhysBone を止められない (2026-08-25 実測)。
   Shinano の PB/コライダー 72 個はすべて `Armature/…` 配下にあり、トグル対象
   (`Cloth_skirt` 等のメッシュのオブジェクト) の配下に無いため。**変換前の
@@ -142,11 +156,32 @@ not-run:
   アニメーションへ手を出すことになり、「迷ったら触らない」という保守方針と正面から
   衝突する。CustomBase はトグルが 6 個しかなく、得られる上限も小さい
 
+- C: [U9] 隠蔽シェイプのデルタは**有限の遠方値 `1e6`** で作る (0.8.1-alpha、2026-08-28)。
+  `+Infinity` は VRChat クライアントの自分視点でレンダラーごと描画されなくなる (実機で特定)。
+  ボーン方式 (NaNimation 系) は**採用しない** — 過去に試して限界と使いにくさが分かっている
+  というユーザー判断。有限値でも軽量化の実質 (ピクセル段の削減) は失われない。∞ が余分に
+  持っていたのは「bounds を再計算されたら丸ごとカリングされる」性質だけで、それが不具合の
+  正体だった。距離は遠クリップ面の外かつ角径サブピクセルであれば足り、`1e6` は実測で
+  スキニング後の散らばりが最大 8m と小さく、巨大な三角形にならない
+- C: [U8] マテリアル差し替え (PPtr) を持つメッシュの統合は**追わない** (2026-08-28)。
+  AAO の自動統合は `IsAnimatedForbidden` で object/PPtr アニメーション
+  (`m_Materials.Array.data[N]`) を一律禁止する。float は `m_Enabled` / `blendShape.*` /
+  `material.*` だけ許可 (`material.*` は `GetDefaultValue` で既定値を解決でき、統合後の
+  カーブへ移し替えられる)。**この禁止は安全側へ倒すための保守判断**である。手動の
+  Merge Skinned Mesh は差し替えに対応済み (`MergeSkinnedMeshProcessor` がスロット番号を
+  張り替える。CHANGELOG #274) だが、統合でマテリアルスロットが共有されると片方だけの
+  差し替えが同居メッシュを巻き込むため、手動側は `material-animation-differently` 警告を
+  出して**ユーザーに採否を委ねる**。自動統合には判断を仰ぐ余地が無いので一律禁止に
+  している (事故履歴: CHANGELOG 1.9.3 #1650 "Auto Merge Material Slots may break material
+  swapping animations")。**本パッケージの守備範囲外** — 差し替えは素体・衣装側の
+  ギミックであり、剥がせば見た目が壊れる
+
 ## Next
 
-1. 0.7.0-alpha の実機確認 (共有 PB 停止の VRChat クライアント動作) — blocked-by: ユーザー実施
-2. Quest 実機での確認 (モバイル GPU の ∞ 頂点) — blocked-by: PC 版の機能充足
-   (ユーザー判断で最後に回す)
+1. 頂点段のコストの実測 (変換なし / 変換あり+AAO を、全表示・半分・全隠しで比較)。
+   複数体を同時に置いて差分をノイズから浮かせる
+2. Quest 実機での再確認 (デルタを有限値へ変えたので、∞ 前提の 2026-08-25 の確認は
+   取り直しになる) — blocked-by: ユーザー実施
 
 ## Paths
 
@@ -167,6 +202,17 @@ not-run:
   Av3Emulator を載せない (FX の m_Enabled 書き戻しと直接 disable が競合する)
   (3) emulator の Mirror/Shadow クローンは VRCPhysBone を破棄した複製なので、
   FindObjectsOfType でドライバを拾うときはクローンを除外する
+  **AAO の統合可否を調べる足場は 2026-08-28 に追加**: `Assets/_MTLab/Editor/MTMergeGate.cs`
+  (gitignore 対象)。NDMF Plugin を Optimizing フェーズへ置き、
+  `BeforePass("Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes.AutoMergeSkinnedMesh")`
+  で AAO の解析済み BuildContext を掴み、AAO の `FilterMergeMeshes` /
+  `CategoryMeshesForMerge` を**実物のまま**呼んで足切り理由・グループ構成・
+  アニメーションされているプロパティを出す。結果は `MTLabOut/merge_gate.txt`。
+  再構築時の注意 3 つ: (1) AAO プラグイン全体の直前だと解析状態が未生成で使えない
+  (2) `GetAllFloatProperties` / `GetAllObjectProperties` は
+  `AnimationComponentInfoExtensions` の**静的拡張メソッド**なので、インスタンス
+  メソッドとしてリフレクションすると黙って「該当なし」になる (3) 落ちた理由は
+  ソース順で最初に当たった条件しか出ない (複数条件へ同時に当たる例がある)
 
 ## Resume protocol
 
