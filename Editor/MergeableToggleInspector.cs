@@ -218,9 +218,27 @@ namespace Kie.MergeableToggle.Editor
 
             EditorGUILayout.LabelField($"SMR {candidate.Renderers.Count}", GUILayout.Width(50));
 
+            EditorGUILayout.LabelField(
+                new GUIContent($"{VertexCount(candidate):N0} 頂点",
+                    "このトグルで隠れる頂点数。変換すると、隠している間もこのぶんを\n" +
+                    "毎フレーム払い続けます (統合したメッシュは常に表示されるため)。\n" +
+                    "収支はトグルの数ではなく、この頂点数で決まります。"),
+                EditorStyles.miniLabel, GUILayout.Width(76));
+
             DrawRowBadge(candidate, included);
 
             EditorGUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// 候補が持つ頂点数の合計。収支を決めるのはトグルの数ではなく隠した頂点数なので、
+        /// 利用者が除外を判断する材料はこれになる (2026-08-30 の実測。
+        /// Docs/hidden-cost-decision.md と Docs/perf-research-backlog.md 目標 E)。
+        /// </summary>
+        private static int VertexCount(ToggleCandidate candidate)
+        {
+            return candidate.Renderers.Sum(
+                r => r != null && r.sharedMesh != null ? r.sharedMesh.vertexCount : 0);
         }
 
         /// <summary>
@@ -267,12 +285,27 @@ namespace Kie.MergeableToggle.Editor
         private void DrawSummary()
         {
             var included = _candidates.Where(IsIncluded).ToList();
-            var rendererCount = included.SelectMany(c => c.Renderers).Distinct().Count();
+            var renderers = included.SelectMany(c => c.Renderers).Distinct().ToList();
+            var rendererCount = renderers.Count;
+            var vertexCount = renderers.Sum(
+                r => r != null && r.sharedMesh != null ? r.sharedMesh.vertexCount : 0);
 
             var lines = new List<string>
             {
-                $"変換対象: トグル {included.Count} 件 / SkinnedMeshRenderer {rendererCount} 個",
+                $"変換対象: トグル {included.Count} 件 / SkinnedMeshRenderer {rendererCount} 個 " +
+                $"/ 合計 {vertexCount:N0} 頂点",
             };
+
+            if (vertexCount > 0)
+            {
+                lines.Add(
+                    "変換すると、隠している間もこの頂点を毎フレーム払い続けます。そのかわり\n" +
+                    "表示中はレンダラーとマテリアルスロットが減ります。実測では、この合計のうち\n" +
+                    "普段隠している割合が 9 割を超えたあたりで損得が釣り合います。つまり\n" +
+                    "ほとんど着ないトグルが 1 つだけ極端に大きい、という場合を除けば\n" +
+                    "全部変換して得です。判断に迷ったら、上の一覧で頂点数の大きいものから\n" +
+                    "外してください。");
+            }
 
             lines.Add("この一覧はビルド結果の予告ではありません。\n" +
                       "ビルド時にトグルを生成するツール(Avatar Menu Creator、MA Object Toggle など)の\n" +

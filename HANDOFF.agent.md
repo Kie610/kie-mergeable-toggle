@@ -10,6 +10,14 @@ goal: 手書きのメッシュトグルを AAO が統合できる隠しかたへ
 ## State
 
 complete:
+- C: D5 — インスペクタの一覧へトグルごとの頂点数と合計を出した (0.8.2-alpha、2026-08-30)。
+  検出・変換のロジックは無変更で表示だけの版。収支を決めるのはトグル数ではなく頂点数
+  ([U10]/[U11]) なので、除外を判断する材料を出す。裏取り: `MTVertexCensus` で
+  Shinano_TEST の 9 トグルの合計が **44,764 頂点** となり、頂点段の実測で使った
+  「隠せる頂点」(10 体 862,030 - 414,390 = 447,640) と完全一致した (PASS)。
+  分布は偏っており `Cloth_sweater` 単独で 16,425 (全体の 37%)、最小は 519。
+  足場は `DevProject/Assets/_MTLab/Editor/MTVertexCensus.cs` (gitignore 対象)、
+  結果は `DevProject/MTLabOut/vertex_census.txt`
 - C: 複数トグルで共有する PhysBone の停止 (0.7.0-alpha、2026-08-25)。
   `disableSharedPhysBonesWhenHidden` (既定 ON、公開契約へ追加)。所有トグル集合ごとに
   FX へ `MT_PBStop <n>` レイヤーと `MT_Hidden/<トグルのパス>` ローカル float AAP を生成し、
@@ -207,8 +215,9 @@ not-run:
   結果は `Docs/perf-research-backlog.md` §6 の「結果」、生データは
   `DevProject/MTLabOut/vertex_perf_E1.txt` / `_E2.txt` / `_E3.txt`。
   (1) **CPU メインスレッドの分岐点は 4 構成すべて約 89%** (89.2/89.2/89.1/89.8)。
-  構図に鈍感な基準線であり、1 体あたり**約 4 万頂点**。Shinano_TEST の隠せる頂点は
-  1 体 44,764 なので 9 トグルのうち 8 個ぶんを隠してようやく釣り合う。
+  構図に鈍感な基準線。Shinano_TEST では 1 体あたり約 4 万頂点 (隠せる頂点 44,764 の 89%)
+  で、9 トグルのうち 8 個ぶんを隠してようやく釣り合う。**利用者へ出すのは比率のほう** —
+  絶対値はトグル数と頂点数の機体条件に依存するので一般化しない。
   (2) 追加描画を実機並みの 1 回にすると、wall / GPU / CPU frame time は 3 状態とも
   約 7 ms の床に張り付いて**全条件で判定不能**になる (A も B も 6.9〜7.1 ms)。
   床の影響を受けない CPU メインスレッドで見た全隠しのペナルティは **0.011 ms/体**。
@@ -218,17 +227,15 @@ not-run:
   同時に描画コマンドが増えるほど B の draw call 削減の得が大きくなる (両方 A/B 非対称)。
   (4) **判定基準 (wall の分岐点が 45% 以上) を満たした → 新機構は不要で確定。**
   25.9% は「塗り面積 1%・追加描画 8 回」の 1 点でだけ現れる値なので**利用者向けに使わない**。
-  D5 (インスペクタへトグルごとの頂点数) の実装ブロックは解除。目安は 1 体あたり約 4 万頂点。
+  D5 (インスペクタへトグルごとの頂点数) の実装ブロックは解除。
   ハーネスは `DevProject/Assets/_MTLab/Editor/MTVertexPerf.cs` の
   `Tools/MTLab/Vertex perf E1 / E2 / E3` (gitignore 対象。near 構図は間隔 0.35m・マージン 1.02)
 
 ## Next
 
-1. D5: インスペクタの一覧へトグルごとの頂点数を出す (`Docs/hidden-cost-decision.md` の D5)。
-   目標 E が済んでブロック解除済み。目安は「1 体あたり約 4 万頂点」
-2. 目標 F: `excludedPaths` で収支がどこまで戻るかの実測 (`Docs/perf-research-backlog.md` §7)。
+1. 目標 F: `excludedPaths` で収支がどこまで戻るかの実測 (`Docs/perf-research-backlog.md` §7)。
    構図は目標 E の E3 (near・追加描画 8 回) を使う。E1/E2 の構図は床に張り付いて判定できない
-3. Quest 実機での再確認 (デルタを有限値へ変えたので、∞ 前提の 2026-08-25 の確認は
+2. Quest 実機での再確認 (デルタを有限値へ変えたので、∞ 前提の 2026-08-25 の確認は
    取り直しになる) — blocked-by: ユーザー実施。目標 G (同 §8) はこれが済むまで着手しない
 
 ## Paths
