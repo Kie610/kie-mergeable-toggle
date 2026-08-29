@@ -6,17 +6,18 @@ using UnityEngine;
 namespace Kie.MergeableToggle.Editor
 {
     /// <summary>
-    /// infinimation: 全頂点のデルタを +Infinity にしたブレンドシェイプを生成し、
+    /// infinimation: 全頂点のデルタを遠方 (1e6) へ向けたブレンドシェイプを生成し、
     /// 0⇔100 で表示を切り替える。
     ///
-    /// 頂点が非有限座標へ飛ぶのでプリミティブがクリップ段で破棄され、完全に消える。
+    /// 頂点が遠クリップ面のはるか外へ飛ぶのでプリミティブが破棄され、完全に消える。
     /// ランクの計上項目(boneCount / constraintsCount / materialCount / polyCount)は
     /// どれも動かず、シェーダにもプラットフォームにも依存しない。
     ///
     /// 初期非表示はシェイプのウェイトとしてそのままシリアライズできるので、
     /// 初期状態用のコンストレイントもマテリアル複製も要らない。
     ///
-    /// NaN デルタは Unity が格納時に 0 へ潰すので、必ず +Infinity で作る(実測)。
+    /// デルタは有限値で作る。NaN は Unity が格納時に 0 へ潰し、+Infinity は
+    /// VRChat クライアントの自分視点でレンダラーごと描画されなくなる(2026-08-28 実測)。
     /// 代償は VRAM(1 トグルあたり頂点数×デルタ分)。ランクの計上対象ではない。
     ///
     /// AAO との整合: `blendShape.` カーブは AutoMergeSkinnedMesh の統合キーから
@@ -60,7 +61,7 @@ namespace Kie.MergeableToggle.Editor
         }
 
         /// <summary>
-        /// 全頂点を +Infinity へ飛ばすブレンドシェイプを追加し、その名前を返す。
+        /// 全頂点を遠方 (1e6) へ飛ばすブレンドシェイプを追加し、その名前を返す。
         /// メッシュは複製してから書き換える(非破壊)。
         /// </summary>
         private static string AddHideShape(SkinnedMeshRenderer renderer, string ownerPath)
@@ -68,8 +69,15 @@ namespace Kie.MergeableToggle.Editor
             var mesh = renderer.sharedMesh;
             if (mesh.vertexCount == 0) return null;
 
+            // 隠す先の距離。+Infinity ではなく有限値にする理由 (2026-08-28 実機で特定):
+            // ∞ デルタを持つメッシュは VRChat クライアントの自分視点 (一人称・カメラ) で
+            // レンダラーごと描画されなくなる。鏡・エディタ・Av3Emulator では正常に見えるため
+            // 気付けない。1e6 なら遠クリップ面の外かつ角径がサブピクセルなので見えず、
+            // bounds を再計算されても有限のままカリングされない。
+            // 実測: スキニング後の散らばりは最大 8m で、巨大な三角形にはならない。
+            const float hideDelta = 1e6f;
             var deltas = new Vector3[mesh.vertexCount];
-            for (var v = 0; v < deltas.Length; v++) deltas[v] = Vector3.positiveInfinity;
+            for (var v = 0; v < deltas.Length; v++) deltas[v] = new Vector3(hideDelta, hideDelta, hideDelta);
 
             var newMesh = Object.Instantiate(mesh);
             newMesh.name = mesh.name;

@@ -39,8 +39,10 @@ kieMergeableToggle（`com.kie.kie-mergeable-toggle`）のリポジトリ。**こ
   `CategorizationKey` が一致せず、統合されない（これが本パッケージの存在理由）。
   Hips への固定はアバター内に既にある合意（MA Mesh Settings 等）を壊すため不可
   （0.8.0-alpha で変更。CustomBase で実測）
-- **隠蔽シェイプのデルタは必ず `+Infinity` で作る。** NaN デルタは Unity が格納時に
-  0 へ潰す（実測）
+- **隠蔽シェイプのデルタは有限の遠方値（`1e6`）で作る。** NaN は Unity が格納時に 0 へ潰し、
+  `+Infinity` は VRChat クライアントの自分視点でレンダラーごと描画されなくなる
+  （2026-08-28 に実機で特定。鏡・エディタ・Av3Emulator では再現しないので、
+  ここを ∞ に戻すと気付けないまま壊れる）
 - メッシュの改変は `Instantiate` + `RegisterReplacedObject` で非破壊に行う。元アセットを書き換えない
 - ポリゴン数を変えない。変換はボーンとカーブの付け替えに限る
 

@@ -8,7 +8,7 @@ namespace Kie.MergeableToggle
     /// <summary>
     /// アバタールートに置く設定コンポーネント。
     /// ビルド時、既存アニメーターレイヤーの m_IsActive トグルを検出し、
-    /// infinimation(全頂点デルタ +Infinity のブレンドシェイプ)へ変換して
+    /// infinimation(全頂点デルタを遠方 1e6 へ向けたブレンドシェイプ)へ変換して
     /// AAO のメッシュ統合を可能にする。
     /// </summary>
     [AddComponentMenu("Kie/kieMergeableToggle")]
