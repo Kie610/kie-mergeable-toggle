@@ -27,11 +27,14 @@ namespace Kie.MergeableToggle.Editor
             _component.forceIncludedPaths ??= new List<string>();
             serializedObject.Update();
 
+            // PropertyField の編集は ApplyModifiedProperties まで対象へ反映されない。
+            // 同じ GUI パスで分岐するときは、対象のフィールドではなくプロパティの値を見る
+            // (見ないと表示が 1 回遅れる)。
+            var enableConversion = serializedObject.FindProperty("enableConversion");
             EditorGUILayout.PropertyField(
-                serializedObject.FindProperty("enableConversion"),
-                new GUIContent("変換を有効にする"));
+                enableConversion, new GUIContent("変換を有効にする"));
 
-            if (!_component.enableConversion)
+            if (!enableConversion.boolValue)
             {
                 serializedObject.ApplyModifiedProperties();
                 return;
@@ -99,14 +102,15 @@ namespace Kie.MergeableToggle.Editor
                     MessageType.Warning);
             }
 
+            var disablePhysBones = serializedObject.FindProperty("disablePhysBonesWhenHidden");
             EditorGUILayout.PropertyField(
-                serializedObject.FindProperty("disablePhysBonesWhenHidden"),
+                disablePhysBones,
                 new GUIContent("非表示中は専用 PhysBone も止める",
                     "その衣装だけが使っているアーマチュア側の PhysBone を、隠すのと同じ" +
                     "タイミングで無効化します。素体と共有しているボーン (胸・尻尾など) は" +
                     "止めません。何を止めたかはビルドログに出ます。"));
 
-            using (new EditorGUI.DisabledScope(!_component.disablePhysBonesWhenHidden))
+            using (new EditorGUI.DisabledScope(!disablePhysBones.boolValue))
             {
                 EditorGUI.indentLevel++;
                 EditorGUILayout.PropertyField(
@@ -128,17 +132,20 @@ namespace Kie.MergeableToggle.Editor
         private void SetIncluded(ToggleCandidate candidate, bool included)
         {
             Undo.RecordObject(_component, "Toggle Conversion Target");
+
+            // 候補の安全性 (IsClean) は、警告の元になっているコンポーネントを足したり
+            // 外したりすると入れ替わる。片方のリストだけを触ると反対側へ古い選択が残り、
+            // 安全性が戻ったときにその古い選択が復活する。両方から消してから入れ直す。
+            // 既存データに重複パスがあっても、ここで一緒に落ちる。
+            _component.excludedPaths.RemoveAll(path => path == candidate.Path);
+            _component.forceIncludedPaths.RemoveAll(path => path == candidate.Path);
             if (candidate.IsClean)
             {
-                if (included) _component.excludedPaths.Remove(candidate.Path);
-                else if (!_component.excludedPaths.Contains(candidate.Path))
-                    _component.excludedPaths.Add(candidate.Path);
+                if (!included) _component.excludedPaths.Add(candidate.Path);
             }
             else
             {
-                if (!included) _component.forceIncludedPaths.Remove(candidate.Path);
-                else if (!_component.forceIncludedPaths.Contains(candidate.Path))
-                    _component.forceIncludedPaths.Add(candidate.Path);
+                if (included) _component.forceIncludedPaths.Add(candidate.Path);
             }
 
             EditorUtility.SetDirty(_component);
@@ -203,6 +210,10 @@ namespace Kie.MergeableToggle.Editor
 
         private void DrawCandidateRow(ToggleCandidate candidate)
         {
+            // 一覧はスキャン時点のもの。再スキャンせずに対象を消すと参照が切れるので、
+            // 描画側で落としておく (Missing になった行は次の再スキャンで消える)。
+            if (candidate.Object == null) return;
+
             EditorGUILayout.BeginHorizontal();
             GUILayout.Space(16);
 
