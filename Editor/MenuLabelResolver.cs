@@ -120,15 +120,40 @@ namespace Kie.MergeableToggle.Editor
                 foreach (var condition in conditions) set.Add(condition.parameter);
             }
 
+            // 遷移先がサブステートマシンのときは、そこへ入った直後に走るステート
+            // (既定ステートと Entry の行き先) へ条件を伝播する。これをしないと、
+            // サブステートマシンでまとめられたトグルのメニュー名が解決できない。
+            void AddMachine(AnimatorStateMachine destination,
+                IEnumerable<AnimatorCondition> conditions, HashSet<AnimatorStateMachine> guard)
+            {
+                if (destination == null || conditions == null || !guard.Add(destination)) return;
+                Add(destination.defaultState, conditions);
+                foreach (var entry in destination.entryTransitions)
+                {
+                    Add(entry?.destinationState, conditions);
+                    AddMachine(entry?.destinationStateMachine, conditions, guard);
+                }
+            }
+
+            void AddTo(AnimatorState state, AnimatorStateMachine machine,
+                IEnumerable<AnimatorCondition> conditions)
+            {
+                Add(state, conditions);
+                AddMachine(machine, conditions, new HashSet<AnimatorStateMachine>());
+            }
+
             foreach (var machine in machines)
             {
                 foreach (var transition in machine.anyStateTransitions)
-                    Add(transition?.destinationState, transition?.conditions);
+                    AddTo(transition?.destinationState, transition?.destinationStateMachine,
+                        transition?.conditions);
                 foreach (var transition in machine.entryTransitions)
-                    Add(transition?.destinationState, transition?.conditions);
+                    AddTo(transition?.destinationState, transition?.destinationStateMachine,
+                        transition?.conditions);
                 foreach (var child in machine.states)
                     foreach (var transition in child.state?.transitions ?? System.Array.Empty<AnimatorStateTransition>())
-                        Add(transition?.destinationState, transition?.conditions);
+                        AddTo(transition?.destinationState, transition?.destinationStateMachine,
+                            transition?.conditions);
             }
 
             foreach (var machine in machines)

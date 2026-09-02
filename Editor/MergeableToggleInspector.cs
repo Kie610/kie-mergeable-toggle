@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
@@ -71,6 +73,19 @@ namespace Kie.MergeableToggle.Editor
             EditorGUILayout.Space();
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
+            using (new EditorGUI.DisabledScope(_candidates == null))
+            {
+                if (GUILayout.Button(
+                        new GUIContent("診断情報をコピー",
+                            "環境と検出結果をクリップボードへコピーします。不具合の報告に添えてください。\n" +
+                            "アバターの階層パスを含みます。共有する前に中身を確認してください。"),
+                        EditorStyles.miniButton, GUILayout.Width(110)))
+                {
+                    EditorGUIUtility.systemCopyBuffer = BuildDiagnostics();
+                    Debug.Log("[MergeableToggle] 診断情報をクリップボードへコピーしました");
+                }
+            }
+
             if (GUILayout.Button("再スキャン", EditorStyles.miniButton, GUILayout.Width(80)))
             {
                 _needsRescan = true;
@@ -291,6 +306,93 @@ namespace Kie.MergeableToggle.Editor
             }
 
             GUILayout.Space(BadgeWidth + 4);
+        }
+
+        /// <summary>
+        /// 不具合報告へ貼るための環境と検出結果。alpha の間、報告のたびに口頭で
+        /// 聞いている項目をここでまとめて出す。**性能の主張はしない** (分岐点などの
+        /// 数値は構図で動くので、報告用の文書へ載せない)。
+        /// </summary>
+        private string BuildDiagnostics()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"kieMergeableToggle 診断情報  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+
+            sb.AppendLine();
+            sb.AppendLine("[環境]");
+            sb.AppendLine($"Unity\t{Application.unityVersion}");
+            foreach (var id in new[]
+                     {
+                         "com.kie.kie-mergeable-toggle", "com.vrchat.avatars", "nadena.dev.ndmf",
+                         "com.anatawa12.avatar-optimizer", "nadena.dev.modular-avatar",
+                     })
+                sb.AppendLine($"{id}\t{PackageVersion(id)}");
+            sb.AppendLine($"build target\t{EditorUserBuildSettings.activeBuildTarget}");
+
+            sb.AppendLine();
+            sb.AppendLine("[対象]");
+            var descriptor = _component != null ? _component.GetComponent<VRCAvatarDescriptor>() : null;
+            sb.AppendLine($"アバター\t{(_component != null ? _component.gameObject.name : "(不明)")}");
+            sb.AppendLine($"VRCAvatarDescriptor\t{(descriptor != null ? "あり" : "なし")}");
+
+            sb.AppendLine();
+            sb.AppendLine("[設定]");
+            if (_component != null)
+            {
+                sb.AppendLine($"enableConversion\t{_component.enableConversion}");
+                sb.AppendLine($"disableComponentsWhenHidden\t{_component.disableComponentsWhenHidden}");
+                sb.AppendLine($"disablePhysBonesWhenHidden\t{_component.disablePhysBonesWhenHidden}");
+                sb.AppendLine($"disableSharedPhysBonesWhenHidden\t{_component.disableSharedPhysBonesWhenHidden}");
+                sb.AppendLine($"excludedPaths\t{_component.excludedPaths?.Count ?? 0} 件");
+                sb.AppendLine($"forceIncludedPaths\t{_component.forceIncludedPaths?.Count ?? 0} 件");
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("[候補] 対象/クリーン/SMR/頂点/パス/警告");
+            var candidates = _candidates ?? new List<ToggleCandidate>();
+            var missing = 0;
+            foreach (var candidate in candidates)
+            {
+                if (candidate.Object == null) { missing++; continue; }
+                var vertices = candidate.Renderers.Sum(
+                    r => r != null && r.sharedMesh != null ? r.sharedMesh.vertexCount : 0);
+                sb.AppendLine(string.Join("\t",
+                    IsIncluded(candidate) ? "o" : "-",
+                    candidate.IsClean ? "clean" : "warn",
+                    candidate.Renderers.Count.ToString(),
+                    vertices.ToString(),
+                    candidate.Path,
+                    string.Join("; ", candidate.Warnings)));
+            }
+            if (candidates.Count == 0) sb.AppendLine("(候補なし)");
+
+            var included = candidates.Where(c => c.Object != null).Where(IsIncluded).ToList();
+            var includedRenderers = included.SelectMany(c => c.Renderers).Distinct().ToList();
+            sb.AppendLine();
+            sb.AppendLine("[合計]");
+            sb.AppendLine($"変換対象のトグル\t{included.Count} / {candidates.Count - missing}");
+            sb.AppendLine($"SkinnedMeshRenderer\t{includedRenderers.Count}");
+            sb.AppendLine($"頂点\t{includedRenderers.Sum(r => r != null && r.sharedMesh != null ? r.sharedMesh.vertexCount : 0)}");
+            if (missing > 0)
+                sb.AppendLine($"(参照が切れた候補 {missing} 件は省略。再スキャンしてください)");
+
+            sb.AppendLine();
+            sb.AppendLine("不具合の報告には、これに加えて「素のアバター / 本ツール単独 / AAO 単独」の");
+            sb.AppendLine("切り分け結果と、ビルド時のコンソールログを添えてください。");
+            return sb.ToString();
+        }
+
+        private static string PackageVersion(string id)
+        {
+            try
+            {
+                var info = UnityEditor.PackageManager.PackageInfo.FindForAssetPath($"Packages/{id}/package.json");
+                return info != null ? info.version : "(未導入)";
+            }
+            catch (Exception e)
+            {
+                return "(取得できず: " + e.GetType().Name + ")";
+            }
         }
 
         private void DrawSummary()
