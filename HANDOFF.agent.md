@@ -5,7 +5,7 @@ repo: D:/GitHub_WorkSpace/VRC/Packages/com.kie.kie-mergeable-toggle (origin = gi
 work_branch: main
 upstream: origin/main = 6c3f1fc / package.json は 0.8.0-alpha (2026-08-30 に git fetch で実測)。
   ローカルが 14 コミット先行しており、0.8.1-alpha〜0.8.3-alpha は未 push。
-  0.9.0-alpha (emptyHiddenMaterialSlots) は作業ツリー上で未コミット (2026-09-03。ユーザー承認待ち)
+  0.9.0-alpha (emptyHiddenMaterialSlots) は 89da54a でコミット済み・未 push (2026-09-03)
 base: main@3907539
 goal: 手書きのメッシュトグルを AAO が統合できる隠しかたへ機械的に変換する
 
@@ -18,7 +18,7 @@ complete:
   クリップへ PPtr カーブ、複数なら `MT_SlotOff <n>` レイヤー (AAP の AND ゲート、`AndGateLayer` で
   `MT_PBStop` と共通化)。`MT_Hidden/<パス>` AAP は FX に作れる全変換トグルへ作る。Android では生成しない。
   静的 E2E 54 PASS + Play 64 PASS (下の verified)。経緯と実測は `Docs/hidden-cost-revisit-2026-09-02.md`
-  (D1 の開き直し → 1a 却下 → P2a 採用 → 実装)。**コミットはユーザー承認待ち**
+  (D1 の開き直し → 1a 却下 → P2a 採用 → 実装)。89da54a でコミット済み (未 push)
 - C: 隠している間のコストの再検討 (2026-09-02)。ユーザーの明示指示で D1 を開き直し、案を 0 から
   列挙し直した。途中で実装した 1a (初期非表示トグルのゲート付き別レンダラー化) はユーザー判断で却下し
   実装を取り消した (差分は `DevProject/MTLabOut/rejected_1a_separateInitiallyHiddenToggles.patch`)
@@ -298,7 +298,7 @@ not-run:
 
 ## Next
 
-0. 0.9.0-alpha のコミット (ユーザー承認後)。その後、実機 (VRChat クライアント) で差し替えの動作確認
+0. 実機 (VRChat クライアント) で差し替えの動作確認
    (隠したスロットが描かれないこと・Safety でシェーダがブロックされたときの見え方) は未実施
 0b. `MTVertexPerf` の無人連鎖 (`run_g_chain.ps1`) にも Interaction Mode の切り替えを入れる
    (今は `MTSlotSwapPlay` だけ)。検査用の合成アバター (双方向・片方向・共有スロット) を作れば
