@@ -198,6 +198,40 @@ AAP は同じ AnimatorController の中でしか駆動できないため、owner
 `m_Enabled` アニメーション、同一 GameObject の複数 PB、消費者なし、変換対象外の
 Renderer にも消費される PB は、単独・共有とも保守側へ倒して触らない。
 
+## 隠れたマテリアルスロットの差し替え (0.9.0-alpha)
+
+infinimation は頂点を飛ばすだけで、統合メッシュのサブメッシュは全部描画され続ける。
+隠れた衣装のスロットぶんの draw call (lilToon で 1 スロット約 3 パス) と頂点シェーディングが
+残り、隠している間は AAO 単独より重かった (2026-09-02、`Docs/hidden-cost-revisit-2026-09-02.md`)。
+
+`emptyHiddenMaterialSlots` は第 2 パス (`HiddenSlotPass`、`BuildPhase.Optimizing` の
+`AfterPlugin("com.anatawa12.avatar-optimizer")`) で動く。AAO の自動統合は PPtr アニメーションを
+持つレンダラーを統合しないので、統合の後に足す。
+
+- 統合メッシュの各サブメッシュについて、頂点に非ゼロのデルタを持つ隠蔽シェイプ
+  (名前に `MT_Hide_` を含む。AAO は統合時に接頭辞を付けるが `MT_Hide_` 以降は変えない)
+  の集合を所有トグルとする。覆われない頂点を 1 つでも含むスロットは対象外
+- 第 1 パスが `HiddenSlotState` (NDMF の `BuildContext.GetState`) へ隠蔽シェイプ名 → トグルの
+  パス・初期状態・AAP 名を控え、第 2 パスがそれで所有トグルを引く
+- 所有トグルが 1 つ: `blendShape.<シェイプ>` を持つクリップへ、同じキー時刻で
+  `m_Materials.Array.data[i]` の ObjectReference カーブを足す (weight ≥ 50 → `MT_Empty`、
+  それ以外 → 元のマテリアル)
+- 複数: 所有トグル集合ごとに `MT_SlotOff <n>` レイヤーを作る。形は `MT_PBStop` と同じ
+  (`AndGateLayer`)。Active クリップが元のマテリアル、Stopped クリップが `MT_Empty`
+- 初期状態は所有トグルが全部非表示ならシリアライズ値も `MT_Empty` にする
+  (片方向トグルは WD でこの値へ戻る)
+- `m_Materials.Array.data[i]` が既にアニメーションされているスロットは触らない
+- Android ではシェーダの許可リストに通らないので生成しない。PC の Safety でシェーダが
+  ブロックされた場合はフォールバックで描かれるが、頂点は遠方にあるので見た目は壊れず
+  draw call が戻るだけ
+
+`MT_Empty` は同梱シェーダ `Hidden/kieMergeableToggle/Empty` (`LightMode="MT_Never"` の
+パス 1 本、ShadowCaster なし) からビルド時に生成し、`AssetSaver` で保存する。
+このパスはどのカメラからも描かれないので draw call も頂点処理も発生しない。
+
+このため `MT_Hidden/<トグルのパス>` AAP は共有 PB の所有トグルだけでなく、FX に作れる
+すべての変換対象トグルへ作る (`OwnersInFx`)。
+
 ## 実測 (AAO 込み、Unity 2022.3.22f1)
 
 | アバター | 構成 | SMR | MatSlots | Bones | Tris |

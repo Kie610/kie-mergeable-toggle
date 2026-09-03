@@ -32,6 +32,13 @@ namespace Kie.MergeableToggle.Editor
                 .AfterPlugin("nadena.dev.modular-avatar")
                 .WithRequiredExtension(typeof(AnimatorServicesContext), seq =>
                     seq.Run("Convert mesh toggles", ToggleConverter.Convert));
+
+            // AAO の自動統合は PPtr アニメーションを持つレンダラーを統合しないので、
+            // マテリアルの差し替えは統合の後に足す。
+            InPhase(BuildPhase.Optimizing)
+                .AfterPlugin("com.anatawa12.avatar-optimizer")
+                .WithRequiredExtension(typeof(AnimatorServicesContext), seq =>
+                    seq.Run("Empty hidden material slots", HiddenSlotPass.Run));
         }
     }
 
@@ -157,20 +164,38 @@ namespace Kie.MergeableToggle.Editor
                     : null;
                 var pbClassification = pbStopper?.Classify(
                     effectiveTargets, hiddenRenderersByTarget, isEnabledAlreadyAnimated);
-                var sharedGroups = component.disableSharedPhysBonesWhenHidden && pbClassification != null
-                    ? SharedGroupsInFx(asc, pbClassification.Shared)
-                    : new List<PhysBoneStopper.SharedGroup>();
-                var sharedOwners = new HashSet<ToggleCandidate>(
-                    sharedGroups.SelectMany(group => group.Owners));
-                var sharedParameters = sharedOwners.ToDictionary(
+                // AAP `MT_Hidden/<パス>` は共有 PB の停止と隠れたスロットの差し替えの両方が
+                // AND ゲートの条件に使う。どちらかが有効なら、FX に作れる全トグルへ作る。
+                var needParameters = (pbStopper != null && component.disableSharedPhysBonesWhenHidden)
+                                     || component.emptyHiddenMaterialSlots;
+                var parameterOwners = needParameters
+                    ? OwnersInFx(asc, effectiveTargets)
+                    : new HashSet<ToggleCandidate>();
+                var sharedGroups = new List<PhysBoneStopper.SharedGroup>();
+                if (pbStopper != null && component.disableSharedPhysBonesWhenHidden)
+                {
+                    foreach (var group in pbClassification.Shared)
+                    {
+                        var missing = group.Owners.Where(owner => !parameterOwners.Contains(owner)).ToList();
+                        if (missing.Count > 0)
+                        {
+                            Debug.LogWarning(
+                                "[MergeableToggle] skipped shared PhysBone group because owners have no FX parameter: " +
+                                string.Join(", ", missing.Select(owner => owner.Path)));
+                            continue;
+                        }
+                        sharedGroups.Add(group);
+                    }
+                }
+                var sharedParameters = parameterOwners.ToDictionary(
                     target => target,
                     SharedParameterName);
 
                 VirtualAnimatorController fx = null;
-                if (sharedGroups.Count > 0)
+                if (parameterOwners.Count > 0)
                 {
                     fx = asc.ControllerContext.Controllers[VRCAvatarDescriptor.AnimLayerType.FX];
-                    foreach (var owner in sharedOwners)
+                    foreach (var owner in parameterOwners)
                     {
                         fx.SetParameter(sharedParameters[owner], new AnimatorControllerParameter
                         {
@@ -181,6 +206,25 @@ namespace Kie.MergeableToggle.Editor
                     }
                 }
                 var stoppedLog = new List<string>();
+
+                // 第 2 パス (AAO の後) がスロットの所有トグルを引けるよう、隠蔽シェイプ名を控える
+                var slotState = context.GetState<HiddenSlotState>();
+                slotState.Enabled = component.emptyHiddenMaterialSlots;
+                foreach (var target in effectiveTargets)
+                {
+                    foreach (var (binding, _, _) in plans[target].Toggled)
+                    {
+                        if (binding.type != typeof(SkinnedMeshRenderer) ||
+                            !binding.propertyName.StartsWith("blendShape.MT_Hide_")) continue;
+                        slotState.ByShape[binding.propertyName.Substring("blendShape.".Length)] =
+                            new HiddenSlotState.ToggleInfo
+                            {
+                                Path = target.Path,
+                                InitiallyHidden = initiallyHiddenByTarget[target],
+                                Parameter = sharedParameters.TryGetValue(target, out var p) ? p : null,
+                            };
+                    }
+                }
 
                 foreach (var target in effectiveTargets)
                 {
@@ -195,11 +239,12 @@ namespace Kie.MergeableToggle.Editor
                             stoppedLog.Add($"  {target.Path} -> {path}");
                         }
 
-                        if (sharedOwners.Contains(target))
-                        {
-                            plan.Toggled.Add((EditorCurveBinding.FloatCurve(
-                                "", typeof(Animator), sharedParameters[target]), 0f, 1f));
-                        }
+                    }
+
+                    if (sharedParameters.TryGetValue(target, out var parameter))
+                    {
+                        plan.Toggled.Add((EditorCurveBinding.FloatCurve(
+                            "", typeof(Animator), parameter), 0f, 1f));
                     }
 
                     target.Object.SetActive(true);
@@ -231,19 +276,19 @@ namespace Kie.MergeableToggle.Editor
         }
 
         /// <summary>
-        /// AAP は書き込まれたコントローラ内でしか値を駆動できないため、owner の
-        /// m_IsActive を持つ全クリップが FX に属するグループだけを残す。
+        /// AAP `MT_Hidden/&lt;パス&gt;` を作れるトグルを返す。AAP は書き込まれたコントローラ内でしか
+        /// 値を駆動できないため、m_IsActive を持つ全クリップが FX に属し、かつ他の
+        /// コントローラから届かないトグルに限る。
         /// </summary>
-        private static List<PhysBoneStopper.SharedGroup> SharedGroupsInFx(
-            AnimatorServicesContext asc, IEnumerable<PhysBoneStopper.SharedGroup> groups)
+        private static HashSet<ToggleCandidate> OwnersInFx(
+            AnimatorServicesContext asc, IEnumerable<ToggleCandidate> targets)
         {
+            var accepted = new HashSet<ToggleCandidate>();
             if (!asc.ControllerContext.Controllers.TryGetValue(
                     VRCAvatarDescriptor.AnimLayerType.FX, out var fx))
             {
-                foreach (var group in groups)
-                    Debug.LogWarning("[MergeableToggle] skipped shared PhysBone group because FX controller is missing: " +
-                                     string.Join(", ", group.Owners.Select(owner => owner.Path)));
-                return new List<PhysBoneStopper.SharedGroup>();
+                Debug.LogWarning("[MergeableToggle] FX controller is missing; no MT_Hidden parameter is created");
+                return accepted;
             }
 
             var fxClips = new HashSet<VirtualClip>(fx.AllReachableNodes().OfType<VirtualClip>());
@@ -252,50 +297,26 @@ namespace Kie.MergeableToggle.Editor
                     .Where(controller => !Equals(
                         controller.Key, VRCAvatarDescriptor.AnimLayerType.FX))
                     .SelectMany(controller => controller.Value.AllReachableNodes().OfType<VirtualClip>()));
-            var accepted = new List<PhysBoneStopper.SharedGroup>();
-            foreach (var group in groups)
+            foreach (var owner in targets)
             {
-                var notAllInFx = new List<ToggleCandidate>();
-                var alsoOutsideFx = new List<ToggleCandidate>();
-                foreach (var owner in group.Owners)
-                {
-                    var binding = EditorCurveBinding.FloatCurve(
-                        owner.Path, typeof(GameObject), "m_IsActive");
-                    var clips = asc.AnimationIndex.GetClipsForBinding(binding).ToList();
-                    if (clips.Count == 0 || clips.Any(clip => !fxClips.Contains(clip)))
-                        notAllInFx.Add(owner);
-                    if (clips.Any(reachableOutsideFx.Contains))
-                        alsoOutsideFx.Add(owner);
-                }
+                var binding = EditorCurveBinding.FloatCurve(
+                    owner.Path, typeof(GameObject), "m_IsActive");
+                var clips = asc.AnimationIndex.GetClipsForBinding(binding).ToList();
+                string reason = null;
+                if (clips.Count == 0 || clips.Any(clip => !fxClips.Contains(clip)))
+                    reason = "toggle clips are not all in FX";
+                else if (clips.Any(reachableOutsideFx.Contains))
+                    reason = "a toggle clip is reachable from a non-FX controller";
+                else if (fx.Parameters.ContainsKey(SharedParameterName(owner)))
+                    reason = "FX parameter already exists";
 
-                if (notAllInFx.Count > 0 || alsoOutsideFx.Count > 0)
+                if (reason != null)
                 {
-                    var reasons = new List<string>();
-                    if (notAllInFx.Count > 0)
-                        reasons.Add("owner toggle clips are not all in FX: " +
-                                    string.Join(", ", notAllInFx.Select(owner => owner.Path)));
-                    if (alsoOutsideFx.Count > 0)
-                        reasons.Add("a shared VirtualClip is reachable from a non-FX controller: " +
-                                    string.Join(", ", alsoOutsideFx.Select(owner => owner.Path)));
-                    Debug.LogWarning(
-                        "[MergeableToggle] skipped shared PhysBone group because " +
-                        string.Join("; ", reasons));
+                    Debug.LogWarning($"[MergeableToggle] no MT_Hidden parameter for '{owner.Path}': {reason}");
                     continue;
                 }
 
-                var collidingParameters = group.Owners
-                    .Select(SharedParameterName)
-                    .Where(fx.Parameters.ContainsKey)
-                    .ToList();
-                if (collidingParameters.Count > 0)
-                {
-                    Debug.LogWarning(
-                        "[MergeableToggle] skipped shared PhysBone group because FX parameters already exist: " +
-                        string.Join(", ", collidingParameters));
-                    continue;
-                }
-
-                accepted.Add(group);
+                accepted.Add(owner);
             }
 
             return accepted;
@@ -317,55 +338,19 @@ namespace Kie.MergeableToggle.Editor
             {
                 var group = groups[index];
                 var layerName = $"MT_PBStop {index + 1}";
-                var activeClip = VirtualClip.Create(layerName + " Active");
-                var stoppedClip = VirtualClip.Create(layerName + " Stopped");
-                foreach (var (_, binding) in group.PhysBones)
-                {
-                    activeClip.SetFloatCurve(binding, SingleKeyCurve(1f));
-                    stoppedClip.SetFloatCurve(binding, SingleKeyCurve(0f));
-                }
-
-                // 他プラグインが正の優先度で追加したレイヤーよりも後ろへ置く。
-                var layer = fx.AddLayer(new LayerPriority(int.MaxValue), layerName);
-                layer.DefaultWeight = 1f;
-                var stateMachine = layer.StateMachine;
-                var active = stateMachine.AddState("Active", activeClip);
-                var stopped = stateMachine.AddState("Stopped", stoppedClip);
-                stateMachine.DefaultState = group.Owners.All(owner => initiallyHiddenByTarget[owner])
-                    ? stopped
-                    : active;
-                active.WriteDefaultValues = true;
-                stopped.WriteDefaultValues = true;
-
-                var toStopped = VirtualStateTransition.Create();
-                toStopped.Duration = 0f;
-                toStopped.ExitTime = null;
-                toStopped.SetDestination(stopped);
-                foreach (var owner in group.Owners)
-                {
-                    toStopped.Conditions = toStopped.Conditions.Add(new AnimatorCondition
+                AndGateLayer.Add(fx, layerName,
+                    group.Owners.Select(owner => parameters[owner]).ToList(),
+                    group.Owners.All(owner => initiallyHiddenByTarget[owner]),
+                    active =>
                     {
-                        mode = AnimatorConditionMode.Greater,
-                        parameter = parameters[owner],
-                        threshold = 0.5f,
-                    });
-                }
-                active.Transitions = active.Transitions.Add(toStopped);
-
-                foreach (var owner in group.Owners)
-                {
-                    var toActive = VirtualStateTransition.Create();
-                    toActive.Duration = 0f;
-                    toActive.ExitTime = null;
-                    toActive.SetDestination(active);
-                    toActive.Conditions = toActive.Conditions.Add(new AnimatorCondition
+                        foreach (var (_, binding) in group.PhysBones)
+                            active.SetFloatCurve(binding, SingleKeyCurve(1f));
+                    },
+                    stopped =>
                     {
-                        mode = AnimatorConditionMode.Less,
-                        parameter = parameters[owner],
-                        threshold = 0.5f,
+                        foreach (var (_, binding) in group.PhysBones)
+                            stopped.SetFloatCurve(binding, SingleKeyCurve(0f));
                     });
-                    stopped.Transitions = stopped.Transitions.Add(toActive);
-                }
 
                 stoppedLog.Add($"  {layerName} -> owners: {string.Join(", ", group.Owners.Select(owner => owner.Path))}");
                 stoppedLog.Add($"  {layerName} -> PhysBones: {string.Join(", ", group.PhysBones.Select(pb => pb.path))}");

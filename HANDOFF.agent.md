@@ -1,24 +1,27 @@
 # Agent handoff v1
 
-updated: 2026-08-30
+updated: 2026-09-03
 repo: D:/GitHub_WorkSpace/VRC/Packages/com.kie.kie-mergeable-toggle (origin = github.com/Kie610/kie-mergeable-toggle)
 work_branch: main
 upstream: origin/main = 6c3f1fc / package.json は 0.8.0-alpha (2026-08-30 に git fetch で実測)。
-  ローカルが 9 コミット先行しており、0.8.1-alpha と 0.8.2-alpha は未 push
+  ローカルが 14 コミット先行しており、0.8.1-alpha〜0.8.3-alpha は未 push。
+  0.9.0-alpha (emptyHiddenMaterialSlots) は作業ツリー上で未コミット (2026-09-03。ユーザー承認待ち)
 base: main@3907539
 goal: 手書きのメッシュトグルを AAO が統合できる隠しかたへ機械的に変換する
 
 ## State
 
 complete:
-- C: D5 — インスペクタの一覧へトグルごとの頂点数と合計を出した (0.8.2-alpha、2026-08-30)。
-  検出・変換のロジックは無変更で表示だけの版。収支を決めるのはトグル数ではなく頂点数
-  ([U10]/[U11]) なので、除外を判断する材料を出す。裏取り: `MTVertexCensus` で
-  Shinano_TEST の 9 トグルの合計が **44,764 頂点** となり、頂点段の実測で使った
-  「隠せる頂点」(10 体 862,030 - 414,390 = 447,640) と完全一致した (PASS)。
-  分布は偏っており `Cloth_sweater` 単独で 16,425 (全体の 37%)、最小は 519。
-  足場は `DevProject/Assets/_MTLab/Editor/MTVertexCensus.cs` (gitignore 対象)、
-  結果は `DevProject/MTLabOut/vertex_census.txt`
+- C: 隠れたマテリアルスロットの差し替え (0.9.0-alpha、2026-09-03)。`emptyHiddenMaterialSlots`
+  (既定 ON、公開契約へ追加)。AAO の統合後 (`HiddenSlotPass`、Optimizing の AAO 後) に、頂点が全部
+  隠蔽シェイプで覆われるスロットを同梱シェーダの `MT_Empty` へ差し替える。所有トグルが 1 つならその
+  クリップへ PPtr カーブ、複数なら `MT_SlotOff <n>` レイヤー (AAP の AND ゲート、`AndGateLayer` で
+  `MT_PBStop` と共通化)。`MT_Hidden/<パス>` AAP は FX に作れる全変換トグルへ作る。Android では生成しない。
+  静的 E2E 54 PASS + Play 64 PASS (下の verified)。経緯と実測は `Docs/hidden-cost-revisit-2026-09-02.md`
+  (D1 の開き直し → 1a 却下 → P2a 採用 → 実装)。**コミットはユーザー承認待ち**
+- C: 隠している間のコストの再検討 (2026-09-02)。ユーザーの明示指示で D1 を開き直し、案を 0 から
+  列挙し直した。途中で実装した 1a (初期非表示トグルのゲート付き別レンダラー化) はユーザー判断で却下し
+  実装を取り消した (差分は `DevProject/MTLabOut/rejected_1a_separateInitiallyHiddenToggles.patch`)
 - C: 複数トグルで共有する PhysBone の停止 (0.7.0-alpha、2026-08-25)。
   `disableSharedPhysBonesWhenHidden` (既定 ON、公開契約へ追加)。所有トグル集合ごとに
   FX へ `MT_PBStop <n>` レイヤーと `MT_Hidden/<トグルのパス>` ローカル float AAP を生成し、
@@ -33,6 +36,9 @@ complete:
 - C: 新機構探索 (2026-08-24)。infinimation (∞デルタのブレンドシェイプ) と微小ウェイト共有 NaN ボーン (d4rk 方式、+1ボーン/トグル) の 2 案が primitive レベルで実測成立。NaN デルタ案とマテリアルスワップ案は不成立が確定。詳細・設計案・AAO 整合条件は `Docs/research-2026-08-24-next-mechanisms.md` (これだけで再開可能な自己完結文書)
 
 verified:
+- C: 2026-09-03 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -projectPath DevProject -executeMethod MTSlotSwapE2E.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 1.9.17; scope=**隠れたスロット差し替えの静的検査**。Shinano_TEST / MUMUS_all / Milfy_CustomBase を emptyHiddenMaterialSlots OFF/ON で実ビルドし、(1) SMR・スロット・三角形数が OFF/ON で同じ (2) OFF に MT_SlotOff / MT_Empty が出ない (3) 独立計算した期待スロット (Shinano 1・MUMUS 11・Milfy 3) だけに PPtr カーブ / ゲートがあり、単独所有はクリップのキーと 1:1、共有は Active=元 / Stopped=Empty で条件が全オーナーの MT_Hidden (4) 初期マテリアルが「全オーナー初期非表示」のときだけ MT_Empty (5) MT_Empty が同梱シェーダでアセット保存済み。結果 DevProject/MTLabOut/slot_swap_e2e.txt; counts=passed=54, failed=0, skipped=0, not-run=0
+- C: 2026-09-03 — evidence: status=PASS (検査側の限界による FAIL 2 を含む); kind=runtime; command=Unity.exe -projectPath DevProject -executeMethod MTSlotSwapPlay.Run (GUI、MTLabOut/run_slot_play.ps1 で無人実行); environment=Unity 2022.3.22f1 GUI Play/DevProject; scope=**差し替えの実行検査**。ビルド済み FX を Animator に載せ、トグルレイヤーの遷移を外してステートを固定し、スロットごとに「全オーナーを隠す → Empty」「ゲートが Stopped」「1 つ戻す → 元」「また隠す → Empty」を読む。Shinano_TEST / MUMUS_all × AAO アニメーター最適化 ON/OFF。MUMUS OFF で 10/11 スロット・ON で 2/11 が検査可能で、可能なもの全部が期待どおり。FAIL 2 は MUMUS OFF の 03_Cos_casual (6 オーナー) の「1 つ戻す」で、検査側が選んだステートでは隠蔽シェイプ自体が 0 に戻らなかった (製品の差し替えはシェイプに追従しており正しい)。not-run 12 は片方向トグル (Shinano) と BlendTree 化 (MUMUS 最適化 ON) で駆動できないもの。結果 DevProject/MTLabOut/slot_swap_play.txt; counts=passed=64, failed=2, skipped=0, not-run=12
+- C: 2026-09-03 — evidence: status=PASS; kind=runtime; command=MTLabOut/run_slot_play.ps1 (時刻付き進捗ログ MTLabOut/run_slot_play_status.log); environment=Unity 2022.3.22f1 GUI/DevProject; scope=**無人実行が止まる原因の特定**。GUI Unity の無人実行が「ウィンドウをアクティブにしたときだけ進む」(ユーザー観察。起動から検証開始まで 16.5 分、Play 中 4 分停止)。原因は Preferences の Interaction Mode = Default (非アクティブ時に更新を間引く)。検査の入口で EditorPrefs "InteractionMode"=1 (No Throttling) にすると、起動から完了まで 75 秒で完走 (ウィンドウ操作なし)。ビルド時間 (差し替え ON/OFF): Shinano 4.4/2.9 s、MUMUS_all 3.7/3.1 s。差し替えパス自体は batchmode ログで 17〜48 ms、Milfy 1.6 s (Milfy の 1 ビルド約 3 分の大半は VirtualLens2 92 s・APS 20 s・AAO AnimOpt 17 s); counts=passed=1, failed=0, skipped=0, not-run=0
 - C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTPbCensus.Run; environment=Unity 2022.3.22f1 batchmode/DevProject; scope=PB 帰属の事前実測 (実装前)。保守判定 (チェーンの消費レンダラーが全部トグルで隠れる) で Shinano 10/61 本・MUMUS_all 68/89 本が停止可能、共有ボーン (胸・スカート・尻尾共用) は全件 keep 側。結果は DevProject/MTLabOut/pb_census.txt; counts=passed=2, failed=0, skipped=0, not-run=0
 - C: 2026-08-25 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTPbE2E.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO Trace and Optimize 付与; scope=Shinano・MUMUS_all を disablePhysBonesWhenHidden OFF/ON で実ビルドし比較。(1) AAO 統合結果 (SMR/MatSlots/Bones/Tris) が OFF と ON で完全一致 (2) 止めた PB (ビルド後 FX の VRCPhysBone.m_Enabled バインディング差分) が独立実装 MTPbCensus の排他集合と末尾ボーン名の多重集合で完全一致 (10/10・68/68、過不足 0) (3) 停止 0 本の空振り無し。結果は DevProject/MTLabOut/pb_e2e.txt; counts=passed=6, failed=0, skipped=0, not-run=0
 - C: 2026-08-11 — evidence: status=PASS; kind=runtime; command=NDMF ビルド一式 (当時の E2E スクリプト、詳細は handoff-history.md); environment=Unity 2022.3.22f1 batchmode/DevProject; scope=実アバター 2 体への E2E 変換 (MUMUS_all SMR 21→4・ボーン 453→933 / Shinano SMR 11→2・ボーン 272→469、ポリゴン不変、検出はシーン内 10 体で 80 候補); counts=passed=2, failed=0, skipped=0, not-run=0
@@ -66,6 +72,10 @@ verified:
 - C: 2026-08-28 — evidence: status=PASS; kind=runtime; command=VRChat クライアントでのアップロードと目視 + Unity.exe -batchmode -quit -executeMethod MTBuiltDump.Run; environment=同上 / Unity 2022.3.22f1 batchmode; scope=**修正の確認 (0.8.1-alpha)**。デルタを `1e6` へ変えたビルドで自分視点に表示されることを実機で確認。隠すべき衣装は消えており、視界に異物は出ない。手元の実測ではスキニング後の飛び先が距離 1,732,050 (=1e6×√3)、**散らばりは最大 8m** (Cloth_sweater) で巨大な三角形にはならない。角径はサブピクセルかつ遠クリップ面の外; counts=passed=2, failed=0, skipped=0, not-run=0
 - C: 2026-08-28 — evidence: status=PASS; kind=runtime; command=VRChat クライアント PC 版 (ユーザーが実施・報告); environment=Shinano_TEST; scope=**0.7.0-alpha の共有 PB 停止の実機確認**。共有している PB は、所有トグルが全部非表示になったときに無効化されていた; counts=passed=1, failed=0, skipped=0, not-run=0
 - C: 2026-08-29 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath DevProject -executeMethod MTVertexPerf.RunPass0 / .RunPass1 (GUI、batchmode 不可); environment=Unity 2022.3.22f1 GUI/DevProject/VRCSDK 3.10.4/AAO 1.9.17/MA 1.18.2、Shinano_TEST を 10 体・240 フレーム × **8 反復**、warmup 60、追加描画 8 回/フレーム、Av3Emulator 無し; scope=**隠している間も払う頂点段のコストと変換の収支**。A と B を同一反復の中で隣接して測り、反復ごとの d = B - A で判定 (|平均 d| > d の半レンジ かつ符号が全反復で揃う)。**有意差あり。全 6 条件 (2 skinning × 3 状態) で符号が揃った**。project-default のフレーム時間 (10 体・追加描画込み) は 全表示 d=-1.235 ms (noise 0.319、B が速い) / 半分隠す +2.503 (0.345) / 全隠し +3.353 (0.201)。CPU メインスレッドは -1.236 / -0.601 / +0.595 ms、MeshSkinning.GPUSkinning は -0.303 / -0.114 / +0.127 ms (すべて有意)。cpu-skinning 周回の `MeshSkinning.Skin` (フレーム 1 回・非増幅) は +11.07 / +26.77 / +34.41 ms、**隠していても払う頂点段は 1 体あたり約 3.4 ms/frame**。draw calls / batches は 4623→1743 / 3183→1743 / 1383→1743 で分散ゼロ。ジオメトリは 1 体あたり SMR 11→2、サブメッシュ 13→5、**マテリアルスロット 13→5** (異なるマテリアル数 5 まで束ねられる。同じマテリアルを別 SMR で持つ衣装のスロットが畳まれる)、頂点 86,203 は不変。**収支の分岐点はトグルの約 17%** (全表示と半分隠すの線形内挿)。画角の証拠は計測カメラの 2 枚レンダリング差分で全 96 条件フラスタム内 10/10 体・塗り面積 0.6〜1.0%。結果は DevProject/MTLabOut/vertex_perf_run6_final.txt (生値 vertex_perf_raw_run6_final.tsv); counts=passed=96, failed=0, skipped=0, not-run=0
+- C: 2026-09-02 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode -quit -executeMethod MTHiddenGroupE2E.Run; environment=Unity 2022.3.22f1 batchmode/DevProject/AAO 1.9.17; scope=**separateInitiallyHiddenToggles (0.9.0-alpha) の E2E**。Shinano / MUMUS_all / CustomBase を OFF / ON / ALL で実ビルドし、初期非表示トグルが素体とは別の 1 SMR へ統合されること (Shinano SMR 2→3・MUMUS_all 4→5)、統合先 GameObject が activeSelf=false で `MT_HiddenGroup 1` レイヤーが GameObject の m_IsActive を駆動すること (AAO は activeness プロパティが 1 本だと GameObject 側へ写像する)、統合できないメンバー (MUMUS `Body_hand`) は SMR の m_Enabled で残ること、メンバーの隠蔽シェイプが統合先にだけ過不足なくあること、三角形数不変を検査。CustomBase はセンサスがビルド時生成トグルを見られないので not-run (生成物は整合)。Shinano の ALL は「隠すクリップしか持たないトグルを初期非表示にすると AAO が隠蔽シェイプを正しく凍結する」ため両方向クリップ持ちに限定 (製品の機構は元から初期非表示のトグルだけを対象にするので踏まない)。結果 DevProject/MTLabOut/hidden_group_e2e.txt; counts=passed=49, failed=0, skipped=0, not-run=2 (17:25 の再実行。CustomBase の 2 件は not-run)
+- C: 2026-09-02 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath DevProject -executeMethod MTVertexPerf.RunG0 / RunG1 (GUI、無人連鎖 run_g_chain.ps1); environment=Unity 2022.3.22f1 GUI/DevProject、MUMUS_all Variant を 10 体・追加描画 8 回・near 構図 (塗り面積 14.0〜30.1%)・8 反復・対の差; scope=**初期非表示グループのゲートの効き目 (系列 G)**。G0 (ゲート無し) の d=B−A は 全表示 wall −4.958 / メインスレッド −2.667、半分隠す +4.989 / +0.870、**全隠し +8.042 / +4.087** (すべて有意)。G1 (19 トグル全部を初期非表示にしてゲート付きグループへ) は 全表示 −5.280 / −2.704、半分隠す +5.319 / +0.928 (G0 と同じ)、**全隠し +0.015 / −0.029 で判定不能 (A と区別が付かない。draw calls・可視 SMR も一致)**。MUMUS_all は素体側と統合できる常時表示メッシュが無いので SMR は G0/G1 とも 4 で増えない。最初の G1 はハーネスのゲート模倣が GameObject の active を戻しておらず無効 (退避済み)。結果 DevProject/MTLabOut/vertex_perf_G0.txt / vertex_perf_G1.txt (生値 _raw.tsv); counts=passed=96, failed=0, skipped=0, not-run=0
+- C: 2026-09-02 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath DevProject -executeMethod MTVertexPerf.RunW1 / RunW2 (GUI、無人連鎖); environment=Unity 2022.3.22f1 GUI/DevProject、Shinano_TEST と MUMUS_all を 10 体・追加描画 8 回・near 構図・8 反復、**R (未変換・AAO 無し) / A (AAO のみ) / B (現行変換) / S (B + P2a) の 4 構成を同じ反復で交互に測定**; scope=ユーザー要望の 4 構成比較。表示中は S=B (全差が判定不能)。隠している間は S が B の損を消す: MUMUS_all 半分隠す wall 14.46 → 11.69 (S−B −2.77 有意)・メインスレッド 7.79 → 6.52 (−1.27 有意)、全隠し wall 13.33 → 7.30 (−6.04 有意)・メインスレッド 7.85 → 4.42 (−3.43 有意)、A は 6.95 / 3.79。Shinano は全隠しだけ wall 10.08 → 7.56 (−2.53 有意)。A−R は小さい (Shinano draw call −960、MUMUS 同数)。結果 DevProject/MTLabOut/vertex_perf_W1.txt / vertex_perf_W2.txt; counts=passed=192, failed=0, skipped=0, not-run=0
+- C: 2026-09-02 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath DevProject -executeMethod MTVertexPerf.RunS0 / RunS1 / RunS2 / RunS3 / RunS4 / RunG0 (GUI、無人連鎖 run_g_chain.ps1); environment=Unity 2022.3.22f1 GUI/DevProject、Shinano_TEST と MUMUS_all Variant を 10 体・追加描画 8 回・near 構図・8 反復・対の差、差し替えはハーネスが sharedMaterials を直接書き換えて PPtr カーブを模倣; scope=**案 P2 (隠れたマテリアルスロットの差し替え) の効き目**。P2a (統合スロットのまま差し替え): MUMUS_all で 半分隠す wall +2.969 → **+0.642 (判定不能)**・メインスレッド +0.849 → **−0.578**、全隠し wall +6.190 → **+0.343 (判定不能)**・メインスレッド +3.885 → **+0.600**、全表示は不変 (draw calls 4264 で同数)。Shinano は衣装 7 点が 1 マテリアルなので全隠しだけ改善 (wall +2.734 → +0.211 判定不能)。P2b (トグルごとにマテリアル複製): 全表示の draw call が変換なしと同数になり メインスレッド Shinano +1.801・MUMUS +3.677 と純損、スロット数も統合前と同じ → 却下。結果 DevProject/MTLabOut/vertex_perf_S{0..4}.txt / vertex_perf_G0.txt; counts=passed=288, failed=0, skipped=0, not-run=0
 - C: 2026-09-02 — evidence: status=PASS; kind=build; command=Unity.exe -batchmode -quit -projectPath <MA 抜きの使い捨てプロジェクト> -logFile <log>; environment=Unity 2022.3.22f1、DevProjectMini の manifest から **Modular Avatar だけを除いた**最小プロジェクト (VRCSDK Avatars/Base + NDMF + 本パッケージ。実体は DevProject/Packages を file: 参照); scope=**Modular Avatar が無い環境で本パッケージが成立するかの確認**。Editor の asmdef は `nadena.dev.modular-avatar.core` を無条件に参照しているため、MA 未導入だとアセンブリごとコンパイルされない懸念があった (README と配布文書は MA を「任意」と書いており、`vpmDependencies` にも MA は無い)。**結果は問題なし**: error CS 0 件で、`com.kie.kie-mergeable-toggle.Editor.dll` と `.Runtime.dll` の両方が生成された。Unity は解決できない asmdef 参照を黙って落とし、`MT_MA_PRESENT` が未定義になるので MA 依存のコード (`MenuLabelResolver` のメニュー名解決と `ToggleScanner` の Merge Animator 追跡) だけが外れる。**MA は文書どおり任意で正しい**。ログは使い捨てプロジェクトのため残っていない (再現手順は上記コマンド); counts=passed=1, failed=0, skipped=0, not-run=0
 - C: 2026-08-29 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath DevProject -executeMethod MTSlotPerf.Run (GUI); environment=Unity 2022.3.22f1 GUI/DevProject、合成メッシュ (頂点 6,321 / 三角形 12,288 / ボーン 1 / 全スロット同一マテリアル)、10 体・240 フレーム × 8 反復・追加描画 32 回/フレーム; scope=**マテリアルスロット単価の実測 (目標 A)**。頂点数・三角形数・ボーン・マテリアルを固定し スロット数だけ 1/2/4/8/16 と変えた。判定は反復ごとの対の差。**スロット 1 個あたり CPU メインスレッド 0.172 ms、レンダースレッド 0.198 ms** (10 体・33 描画あたり。N=4〜16 で傾きが一定)。1 体・1 描画あたりに直すと 0.52 / 0.60 µs。SetPass Calls は ±0 (同一マテリアルのため)、draw calls は 990/スロットで分散ゼロ。wall frame time は N=16 でのみ有意 (0.056 ms/スロット) — CPU 増分がフレーム下限 約 7 ms に隠れるため。**本拡張のスロット削減 13→5 が説明するのは、run6 で観測した全表示時のメインスレッド短縮 (1 描画あたり 0.137 ms/10 体) のうち約 31% で、残り約 7 割は SMR 11→2 のレンダラー個数削減に由来する**。結果は DevProject/MTLabOut/slot_perf_run2_final.txt (生値 slot_perf_raw_run2_final.tsv); counts=passed=40, failed=0, skipped=0, not-run=0
 - C: 2026-08-29 — evidence: status=PASS(方法論); kind=runtime; command=同上を 3 回 (03:07 / 04:06 / 14:01); environment=同上; scope=**判定方法の欠陥と修正**。反復 3 回で「A の平均と B の平均の差」を見る方式だと、ラン間の機体状態のドリフト (同条件で wall 12.19 ms と 8.75 ms) が差へ混ざり、全表示の結論が run1 有意 / run2 判定不能 と割れた。A/B は同一反復で隣接して測っているので、**反復ごとの対の差を集める方式へ変えたところ 8 反復で全条件の符号が揃った**。以後の負荷比較はすべて対の差で判定する; counts=passed=3, failed=0, skipped=0, not-run=0
@@ -258,6 +268,19 @@ not-run:
   落とし穴: AAO の統合時の改名は**前置だけとは限らない** (RenameToAvoidConflict)。
   MT_Hide_* シェイプの突き合わせは末尾一致では落ちるので、部分一致かつ一意で引く
 
+- C: [U14] 隠している間のコストへ**機構で手を打つ**ことにし、[U10] の D1 を開き直した
+  (2026-09-02、ユーザーの明示指示による再検討)。**P2a「隠れたマテリアルスロットの差し替え」を採用し 0.9.0-alpha で実装した (2026-09-03、`emptyHiddenMaterialSlots`)**:
+  AAO の統合後 (Optimizing、AAO の後ろ) に、統合メッシュの各スロットについて「頂点を覆う隠蔽シェイプ
+  (所有トグル) が全部隠れたら」マテリアルを描画パスの無い `MT_Empty` へ PPtr カーブで差し替える。
+  所有トグルが 1 つならそのクリップへ、複数なら AAP の AND ゲートで。SMR もスロット数も増えない。
+  効く粒度はマテリアルの共有単位 (Shinano は衣装 7 点が 1 マテリアルなので全隠しでしか効かない。
+  MUMUS_all は 16 スロット中 11 が差し替え対象で、半分隠す状態の損 wall +5.0 → +0.6 (判定不能)、
+  全隠し +8.0 → +0.3 (判定不能)、メインスレッド +4.1 → +0.6)。
+  当初「スロット単価 0.5 µs」で却下していたのは算術の前提 (1 パス) が誤りで、lilToon は約 3 パス。
+  **却下した 1a** (初期非表示トグルをゲート付き別レンダラーへ統合): 実測では全隠しの損が全指標で
+  消えたが、グループが全部隠れた状態でしか効かず、SMR +1 とスロット統合の一部放棄を伴うため
+  ユーザー判断で却下。0 から列挙し直した案の表と、P2b (トグルごとにマテリアルを分ける変種、
+  スロット数が増える) の実測は `Docs/hidden-cost-revisit-2026-09-02.md` §2b・§4.4〜4.5
 - C: [U13] 目標 B の核心（レンダラー個数 vs マテリアルスロット数の切り分け）が決着した
   (2026-08-30)。**追加計測はしていない** — 目標 F の k 系列が、除外 1 件ごとに SMR が
   1 個ずつ戻る掃引そのものだったため、既存データから取れた。
@@ -275,6 +298,12 @@ not-run:
 
 ## Next
 
+0. 0.9.0-alpha のコミット (ユーザー承認後)。その後、実機 (VRChat クライアント) で差し替えの動作確認
+   (隠したスロットが描かれないこと・Safety でシェーダがブロックされたときの見え方) は未実施
+0b. `MTVertexPerf` の無人連鎖 (`run_g_chain.ps1`) にも Interaction Mode の切り替えを入れる
+   (今は `MTSlotSwapPlay` だけ)。検査用の合成アバター (双方向・片方向・共有スロット) を作れば
+   実行検査の not-run 12 を消せる
+   (`Docs/hidden-cost-revisit-2026-09-02.md` §6)
 1. Quest 実機での再確認 (デルタを有限値へ変えたので、∞ 前提の 2026-08-25 の確認は
    取り直しになる) — blocked-by: ユーザー実施
 2. 実機での体感確認 (再表示時にレスト位置から揺れ直す見え方が許容範囲か) — blocked-by: ユーザー実施
@@ -285,6 +314,11 @@ not-run:
 
 ## Paths
 
+- C: `Docs/hidden-cost-revisit-2026-09-02.md` — 隠している間のコストの再検討 ([U14] の正本。
+  18 案の比較表、E2E と系列 G / S / W の実測、採用の判断、実装の検証 (§4.7)、公開契約への影響、未測定事項)
+- C: `../../DevProject/Assets/_MTLab/Editor/MTSlotSwapE2E.cs` (静的検査、batchmode) /
+  `MTSlotSwapPlay.cs` (実行検査、GUI Play) / `../../DevProject/MTLabOut/run_slot_play.ps1` (無人起動。
+  pwsh 7、時刻付きの進捗ログと 5 分無進捗停止) — 0.9.0-alpha の検証足場 (2026-09-03)
 - C: `Docs/hidden-cost-decision.md` — 隠している間のコストへ手を打つかの決定 ([U10] の正本。
   3 分解・AAO の Activeness 統合・頂点数ベースの分岐点・却下した機構の一覧)
 - C: `Docs/research-2026-08-24-next-mechanisms.md` — 新機構探索の正本 (設計案・実測値・AAO 整合条件・未検証リスト)
@@ -304,6 +338,15 @@ not-run:
   Av3Emulator を載せない (FX の m_Enabled 書き戻しと直接 disable が競合する)
   (3) emulator の Mirror/Shadow クローンは VRCPhysBone を破棄した複製なので、
   FindObjectsOfType でドライバを拾うときはクローンを除外する
+  **0.9.0-alpha の足場は 2026-09-02 に追加**: `Assets/_MTLab/Editor/MTHiddenGroupE2E.cs`
+  (OFF / ON / ALL の 3 ビルドでグループ SMR の構成を検査。結果 `MTLabOut/hidden_group_e2e.txt`) と
+  `MTVertexPerf.cs` の `Tools/MTLab/Vertex perf G` (F k=0 と同構図で B の全トグルを初期非表示にして
+  ゲート付きグループへ入れ、状態適用でレンダラーの enabled を AND ゲートどおりに切る。
+  結果 `MTLabOut/vertex_perf_G.txt`)。G 以外の系列は `separateInitiallyHiddenToggles=false` で
+  ビルドして従来の B と同じ構成を保つ (Shinano_TEST は初期非表示トグルを 2 つ持つため)。
+  落とし穴: 別レーンのセッションが `taskkill /IM Unity.exe` を実行すると DevProject の batchmode も
+  巻き込まれて結果なしで消える (2026-09-02 16:17 に踏んだ。Vault の罠ノート参照)。
+  長いジョブは結果をアバター/条件ごとに逐次書き出す
   **AAO の統合可否を調べる足場は 2026-08-28 に追加**: `Assets/_MTLab/Editor/MTMergeGate.cs`
   (gitignore 対象)。NDMF Plugin を Optimizing フェーズへ置き、
   `BeforePass("Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes.AutoMergeSkinnedMesh")`
@@ -318,6 +361,8 @@ not-run:
 
 ## Resume protocol
 
+0. **0.9.0-alpha (隠れたスロットの差し替え) の続きなら `Docs/hidden-cost-revisit-2026-09-02.md` §4.7〜6 を先に読む**
+   (`DevProject/MTLabOut/hidden_group_resume_prompt.md` は却下した 1a 時点の再開手順で、古い)
 1. `Docs/research-2026-08-24-next-mechanisms.md` を読む (新機構の再開はこれが正本)
 2. git fetch と status で work_branch / upstream の drift を実測してから作業する
 3. Unity 検証は DevProject が他セッションに使われていないこと (UnityLockfile 不在) を確認してから

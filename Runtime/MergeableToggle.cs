@@ -54,6 +54,19 @@ namespace Kie.MergeableToggle
         /// </summary>
         public bool disableSharedPhysBonesWhenHidden = true;
 
+        /// <summary>
+        /// 非表示のあいだ、隠れた衣装だけが使うマテリアルスロットを空のシェーダへ差し替える。
+        ///
+        /// 隠蔽は頂点を遠方へ飛ばすだけなので、隠れたメッシュのぶんも draw call と頂点処理は
+        /// 発行され続ける。これを有効にすると、Avatar Optimizer の統合後に、隠れたトグルの
+        /// 頂点だけで構成されるスロットを空のシェーダへ切り替え、そのぶんの描画コストを消す。
+        /// 素体と共有しているスロットは触らない。SMR 数もマテリアルスロット数も変わらない。
+        ///
+        /// 効く単位はマテリアルの共有単位。着替えの単位でマテリアルが分かれているほど、
+        /// 一部だけ隠している普段の状態で効く。Android ビルドでは無効 (シェーダの許可リスト)。
+        /// </summary>
+        public bool emptyHiddenMaterialSlots = true;
+
         /// <summary>変換から除外するトグル対象のパス(クリーン候補はデフォルトで変換対象)</summary>
         public List<string> excludedPaths = new List<string>();
 

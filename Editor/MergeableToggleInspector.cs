@@ -135,6 +135,13 @@ namespace Kie.MergeableToggle.Editor
                         "非表示のときだけ止めます。FX に専用レイヤーとローカルパラメータを生成します。"));
                 EditorGUI.indentLevel--;
             }
+
+            EditorGUILayout.PropertyField(
+                serializedObject.FindProperty("emptyHiddenMaterialSlots"),
+                new GUIContent("非表示中は専用マテリアルスロットを空にする",
+                    "隠れた衣装だけが使うマテリアルスロットを、隠れている間だけ空のシェーダへ" +
+                    "差し替えて描画コストを消します。素体と共有するスロットは触りません。" +
+                    "Android ビルドでは無効です。何を差し替えたかはビルドログに出ます。"));
         }
 
         private bool IsIncluded(ToggleCandidate candidate)
