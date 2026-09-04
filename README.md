@@ -61,7 +61,7 @@ AAO (Avatar Optimizer) の自動メッシュ統合は「アクティブ状態の
 > マテリアルスロットは SkinnedMeshRenderer と MeshRenderer を合算した数です。
 > SkinnedMeshRenderer だけを数えると Shinano は 13 → 5、MUMUS_all は 34 → 16 になります
 > (差は各アバターが 1 個だけ持つ MeshRenderer のぶん。Shinano 1 スロット、MUMUS_all 2 スロット)。
-> `Docs/` の負荷計測は
+> `docs/` の負荷計測は
 > 後者の数えかたなので、数字が食い違って見えたらここを確認してください。
 
 > 0.5.0-alpha より前は、シェイプ(関節)・シェイプ(軸)・UVタイル破棄・NaNimation の
@@ -202,7 +202,7 @@ SMR 数・マテリアルスロット数・ポリゴン数は変わらないの�
 | Shinano (衣装 7 点が 1 マテリアル) | 全隠し | 10.08 → 7.56 | 4.04 → 3.67 |
 
 表示中は差がありません (draw call 同数)。MUMUS_all の半分隠す状態は AAO のみの構成と
-同水準です。根拠と経緯は `Docs/hidden-cost-revisit-2026-09-02.md`。
+同水準です。根拠と経緯は `docs/hidden-cost-revisit-2026-09-02.md`。
 
 </details>
 

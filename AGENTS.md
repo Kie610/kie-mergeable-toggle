@@ -8,7 +8,7 @@ kieMergeableToggle（`com.kie.kie-mergeable-toggle`）のリポジトリ。**こ
 ユーザーの明示指示、この文書、ワークサンプルとしての既存コード、の順に優先する。
 ワークスペース全体の振り分け規則は `../../AGENTS.md` にある。
 
-このリポジトリは実装だけを持つ。**Unity 上での検証は `../../DevProject` で行う**
+このリポジトリは実装だけを持つ。**Unity 上での検証は `../../avatar-dev` で行う**
 （`file:` 参照で読まれている）。検証手順とデバッグツールは向こうの規約に従う。
 
 ## Project contract
@@ -64,7 +64,7 @@ kieMergeableToggle（`com.kie.kie-mergeable-toggle`）のリポジトリ。**こ
 
 ## Commands
 
-Unity の検証は `../../DevProject` を開いて行う。バッチ実行の前に Unity Editor が同じ
+Unity の検証は `../../avatar-dev` を開いて行う。バッチ実行の前に Unity Editor が同じ
 プロジェクトを開いていないことを確かめる。
 
 ## Release
@@ -79,5 +79,5 @@ Unity の検証は `../../DevProject` を開いて行う。バッチ実行の前
 ## Handoff maintenance
 
 - 現在の状態は `HANDOFF.agent.md` が正本。実質的な進捗・判断・検証・blocker が変わったら更新する
-- 過去の作業メモは `handoff-history.md` へ原文のまま残す。上書きしない
+- 過去の作業メモは `docs/handoff-history.md` へ原文のまま残す。上書きしない
 - 作業メモをワークスペース直下（`../../`）へ置かない
