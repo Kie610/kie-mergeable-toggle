@@ -1,7 +1,7 @@
 # lilToon 2.3.4 の設定別描画負荷――実測候補は屈折ぼかし、ファー、POM、テッセレーション、宝石
 
 作成 2026-08-29。対象は VRChat PC 版で使われる Built-in Render Pipeline（BRP）と、
-`DevProject/Packages/jp.lilxyzw.liltoon` に導入済みの lilToon **2.3.4** である。
+`avatar-packages/Packages/jp.lilxyzw.liltoon` に導入済みの lilToon **2.3.4** である。
 GPU 時間はまだ測っていないため、負荷の実測値はすべて **未測定** とする。
 
 ## 結論
@@ -63,7 +63,7 @@ Geometry Shader を使い、入力三角形あたり 8 / 14 / 26 頂点を生成
 （`Editor/lilToonSetting.cs:582-669, 1028-1214`）。一方、同梱の Multi 版はキーワードで分け、
 `Shader/Includes/lil_common.hlsl:27-50` で `_Use*` を定数化する。
 
-ローカル出典の基点は `../../DevProject/Packages/jp.lilxyzw.liltoon/` である。表中で
+ローカル出典の基点は `../../avatar-packages/Packages/jp.lilxyzw.liltoon/` である。表中で
 `lil_common_*.hlsl` とだけ書いたファイルは、すべてその配下の `Shader/Includes/` にある。
 
 | 項目 | 追加テクスチャフェッチ | 追加パス | 主に効く段 | 静的か動的か | 確度 | 出典 |

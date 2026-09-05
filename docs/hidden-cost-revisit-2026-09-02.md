@@ -142,12 +142,12 @@ CPU スキニング経路の分解）と、GPU 経路の損を生んでいる **
 
 ### 4.1 案 1a の E2E（AAO の統合が期待どおり起きるか）
 
-ハーネス `DevProject/Assets/_MTLab/Editor/MTHiddenGroupE2E.cs`（gitignore 対象）。
+ハーネス `avatar-dev/Assets/_MTLab/Editor/MTHiddenGroupE2E.cs`（gitignore 対象）。
 Shinano / MUMUS_all / CustomBase を OFF / ON / ALL（両方向のクリップを持つトグルを全部
 初期非表示にして ON）の 3 通りで実ビルド（AAO 込み）し、レイヤーが束ねる SMR が 1 個以上できること、
 その SMR がシリアライズ時点で無効（enabled=false または GameObject の activeSelf=false）であること、
 メンバーの隠蔽シェイプがその SMR 群にだけ過不足なくあること、SMR 数が OFF+1 以下で三角形数が
-不変であることを検査する。結果は `DevProject/MTLabOut/hidden_group_e2e.txt`。
+不変であることを検査する。結果は `avatar-dev/MTLabOut/hidden_group_e2e.txt`。
 
 実測で分かった実装上の事実（C）:
 
@@ -181,7 +181,7 @@ Shinano_TEST は全トグル初期非表示にできない）。
   ハーネスは Animator を回さないので、状態の適用時にグループのレンダラーを
   「メンバーが 1 つでも表示なら有効」にして FX の AND ゲートを模す
 
-結果は `DevProject/MTLabOut/vertex_perf_G0.txt` / `vertex_perf_G1.txt`（生値 `_raw.tsv`）。
+結果は `avatar-dev/MTLabOut/vertex_perf_G0.txt` / `vertex_perf_G1.txt`（生値 `_raw.tsv`）。
 
 予測（Shinano の既存データからの導出値。実測前に書いた）:
 全表示の d は G0 からレンダラー 1 個ぶん（10 体 × 9 描画 × 1.25 µs ≈ 0.11 ms）だけ悪化し、
@@ -192,7 +192,7 @@ Shinano_TEST は全トグル初期非表示にできない）。
 
 ### 4.3 案 1a の結果（2026-09-02 実測。却下の根拠を含む）
 
-#### E2E（`DevProject/MTLabOut/hidden_group_e2e.txt`）
+#### E2E（`avatar-dev/MTLabOut/hidden_group_e2e.txt`）
 
 | アバター | 初期非表示トグル | OFF | ON | 判定 |
 | --- | --- | --- | --- | --- |
@@ -203,7 +203,7 @@ Shinano_TEST は全トグル初期非表示にできない）。
 
 三角形数は 3 体とも OFF / ON / ALL で不変。検査は 49 PASS / 0 FAIL / not-run 2（CustomBase）。
 
-#### 系列 G0 / G1（`DevProject/MTLabOut/vertex_perf_G0.txt` / `vertex_perf_G1.txt`）
+#### 系列 G0 / G1（`avatar-dev/MTLabOut/vertex_perf_G0.txt` / `vertex_perf_G1.txt`）
 
 MUMUS_all Variant・10 体・追加描画 8 回（9 描画/frame）・near 構図（塗り面積 14.0〜30.1%）・8 反復・対の差。
 1 体あたり A は SMR 21 / スロット 34、B は SMR 4 / スロット 16（G0・G1 とも。MUMUS_all には素体と
@@ -268,7 +268,7 @@ Metal 8 トグル共有、princess 系は 1 トグル所有が多い）。
 
 ### 4.5 系列 S の結果（2026-09-02 21:00〜21:30 実測。同じセッションで対照と交互に取った）
 
-生データ: `DevProject/MTLabOut/vertex_perf_S{0,1,2,3,4}.txt` / `vertex_perf_G0.txt`（各 `_raw.tsv`）。
+生データ: `avatar-dev/MTLabOut/vertex_perf_S{0,1,2,3,4}.txt` / `vertex_perf_G0.txt`（各 `_raw.tsv`）。
 d = B − A（ms、10 体・9 描画/frame）。カッコ内は noise（反復の半レンジ）。「不能」は判定不能（ノイズ床以下）。
 
 **Shinano_TEST**（隠せる頂点 44,764 / 体。統合メッシュのスロット 3、差し替え対象は衣装 1 スロット）
@@ -323,7 +323,7 @@ d = B − A（ms、10 体・9 描画/frame）。カッコ内は noise（反復�
 
 ユーザーの要望で、**未変換 / AAO のみ / 現行変換 / P2a** を同じ反復の中で交互に測った
 （`Tools/MTLab/Vertex perf W1 / W2`。10 体・追加描画 8 回・near 構図・8 反復。判定は反復ごとの対の差）。
-生データ `DevProject/MTLabOut/vertex_perf_W1.txt` / `vertex_perf_W2.txt`（各 `_raw.tsv`）。
+生データ `avatar-dev/MTLabOut/vertex_perf_W1.txt` / `vertex_perf_W2.txt`（各 `_raw.tsv`）。
 
 | 構成 | 内容 | Shinano（SMR / スロット / 体） | MUMUS_all |
 | --- | --- | --- | --- |
@@ -377,7 +377,7 @@ d = B − A（ms、10 体・9 描画/frame）。カッコ内は noise（反復�
 §6 の計画どおり `HiddenSlotPass`（`BuildPhase.Optimizing`、AAO の後）として実装した。
 検証は 2 段。
 
-**静的検査** `DevProject/Assets/_MTLab/Editor/MTSlotSwapE2E.cs`（batchmode、`MTLabOut/slot_swap_e2e.txt`）。
+**静的検査** `avatar-dev/Assets/_MTLab/Editor/MTSlotSwapE2E.cs`（batchmode、`MTLabOut/slot_swap_e2e.txt`）。
 Shinano_TEST / MUMUS_all / Milfy_CustomBase を差し替え ON / OFF で実ビルドし、
 (1) SMR・スロット・三角形数が ON / OFF で同じ (2) OFF に `MT_SlotOff` も `MT_Empty` も出ない
 (3) 期待スロット（独立に「全頂点が隠蔽シェイプで覆われる」を計算）だけに PPtr カーブ / ゲートがある
@@ -414,7 +414,7 @@ Shinano_TEST / MUMUS_all / Milfy_CustomBase を差し替え ON / OFF で実ビ�
   効かない場合でも損が無い。P2b（トグルごとにマテリアルを分ける）はスロット数（ランク項目）を
   増やすので、§4.5 の実測で表示中の損と隠蔽中の得を並べたうえで、利用者の選択肢として出すかを決める
 - D2〜D5 は変えない
-- 1a のコードは取り消した（差分は `DevProject/MTLabOut/rejected_1a_separateInitiallyHiddenToggles.patch`）
+- 1a のコードは取り消した（差分は `avatar-dev/MTLabOut/rejected_1a_separateInitiallyHiddenToggles.patch`）
 
 ## 6. 実装計画（P2a）と公開契約への影響
 

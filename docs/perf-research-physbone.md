@@ -12,13 +12,13 @@
   `enabled=false` にした transforms が多い条件ほど `PhysBoneJob` の削減が大きかった。
   出典: [VRChat Performance Ranks](https://creators.vrchat.com/avatars/avatar-performance-ranking-system/)、
   [VRChat Wiki Community Performance Benchmarks](https://wiki.vrchat.com/wiki/Community:VRChat_performance_benchmarks)、
-  `D:\GitHub_WorkSpace\VRC\DevProject\MTLabOut\pb_perf.txt`
+  `D:\GitHub_WorkSpace\VRC\avatar-dev\MTLabOut\pb_perf.txt`
 - C: `VRCPhysBone.enabled=false` は計算を止める。本リポジトリでは Shinano の 35 transforms
   を止めて 0.649 ms、MUMUS_all の 358 transforms を止めて 3.934 ms の
   `PhysBoneJob` を削減した。一方、VRChat 公式は無効な GameObject / Component も
   Performance Rank に数えると明記している。したがって本パッケージの停止機能は
   実行時 CPU 負荷を下げるが、アップロード済みアバターのランクを改善しない。
-  出典: `D:\GitHub_WorkSpace\VRC\DevProject\MTLabOut\pb_perf.txt`、
+  出典: `D:\GitHub_WorkSpace\VRC\avatar-dev\MTLabOut\pb_perf.txt`、
   [VRChat Performance Ranks](https://creators.vrchat.com/avatars/avatar-performance-ranking-system/)
 - C: ランクも下げる必要がある場合は、ビルド結果から PhysBone / Collider を削除し、
   Affected Transforms と Collision Check Count も減らす必要がある。衣装の表示中に
@@ -33,15 +33,15 @@
   二次情報は VRChat Wiki のコミュニティ実測だけを採用した。
 - C: ローカル SDK は `com.vrchat.base` / `com.vrchat.avatars` ともに 3.10.4 である。
   公開フィールド、初期化コード、ランク閾値アセット、上限定数は読めた。
-  出典: `D:\GitHub_WorkSpace\VRC\DevProject\Packages\com.vrchat.base\package.json`、
-  `D:\GitHub_WorkSpace\VRC\DevProject\Packages\com.vrchat.avatars\package.json`
+  出典: `D:\GitHub_WorkSpace\VRC\avatar-packages\Packages\com.vrchat.base\package.json`、
+  `D:\GitHub_WorkSpace\VRC\avatar-packages\Packages\com.vrchat.avatars\package.json`
 - U: ソルバー本体と Performance Rank の走査本体は
   `com.vrchat.base/Runtime/VRCSDK/Plugins/VRC.SDK3.Dynamics.PhysBone.dll` と
   `VRCSDKBase-Editor.dll` にあり、C# ソースは同梱されていない。各設定がどの分岐や
   SIMD job を増減させるかは、読めたソースだけでは確定できない。
 - C: 既存実測の採用条件は、`pb_perf.txt` で準備、期待 `enabled` 状態、反復が成立した
   run に限った。`PREPARE FAILED`、期待状態の検証失敗、結果欄に「無効」とある run は
-  数値根拠に使っていない。出典: `D:\GitHub_WorkSpace\VRC\DevProject\MTLabOut\pb_perf.txt`、
+  数値根拠に使っていない。出典: `D:\GitHub_WorkSpace\VRC\avatar-dev\MTLabOut\pb_perf.txt`、
   `HANDOFF.agent.md`
 
 ## 負荷は transforms、衝突候補、更新回数へ分けて考える
@@ -153,7 +153,7 @@
 | Collision Check Count | 32 | 128 | 256 | 512 | 0 | 16 | 32 | 64 |
 
   出典: [VRChat Performance Ranks](https://creators.vrchat.com/avatars/avatar-performance-ranking-system/)、
-  `D:\GitHub_WorkSpace\VRC\DevProject\Packages\com.vrchat.base\Runtime\VRCSDK\Dependencies\VRChat\Resources\Validation\Performance\StatsLevels\Windows\`、
+  `D:\GitHub_WorkSpace\VRC\avatar-packages\Packages\com.vrchat.base\Runtime\VRCSDK\Dependencies\VRChat\Resources\Validation\Performance\StatsLevels\Windows\`、
   `...\StatsLevels\Quest\`
 - C: Mobile の Poor 値は表示ランクだけでなくハード上限でもある。8 components、
   64 Affected Transforms、16 colliders、64 collision checks のどれかを超えると、Show Avatar
@@ -163,7 +163,7 @@
   `VRCPhysBoneCollider` 256 個である。avatar 上で Global Collision を有効にできる collider は
   最大 4 個、1 PhysBone が扱える transforms は最大 256 個である。出典:
   [SDK 3.2.2 release notes](https://creators.vrchat.com/releases/release-3-2-2/)、
-  `D:\GitHub_WorkSpace\VRC\DevProject\Packages\com.vrchat.base\Runtime\VRCSDK\Dependencies\VRChat\Scripts\Validation\AvatarValidation.cs`、
+  `D:\GitHub_WorkSpace\VRC\avatar-packages\Packages\com.vrchat.base\Runtime\VRCSDK\Dependencies\VRChat\Scripts\Validation\AvatarValidation.cs`、
   [VRChat PhysBones](https://creators.vrchat.com/common-components/physbones/)
 - C: PC で PhysBone 系のランク閾値によるフィルタが発動すると、PhysBone、Collider、Contact
   components は除去される。PC の既定 Minimum Displayed Performance Rank は Very Poor なので、
@@ -202,19 +202,19 @@
 - C: 2026-08-25 の直接停止実測は Unity 2022.3.22f1、Play、240 frames 平均、keep / stop を
   3 回交互に測った。Shinano は 61 components / 136 transforms のうち 10 / 35 を止め、
   `PhysBoneJob` が 2.523→1.874 ms、0.649 ms（25.7%）減った。keep の半レンジは
-  ±0.113 ms である。出典: `D:\GitHub_WorkSpace\VRC\DevProject\MTLabOut\pb_perf.txt`
+  ±0.113 ms である。出典: `D:\GitHub_WorkSpace\VRC\avatar-dev\MTLabOut\pb_perf.txt`
 - C: 同条件の MUMUS_all は 89 components / 414 transforms のうち 68 / 358 を止め、
   `PhysBoneJob` が 4.662→0.728 ms、3.934 ms（84.4%）減った。keep の半レンジは
-  ±0.085 ms である。出典: `D:\GitHub_WorkSpace\VRC\DevProject\MTLabOut\pb_perf.txt`
+  ±0.085 ms である。出典: `D:\GitHub_WorkSpace\VRC\avatar-dev\MTLabOut\pb_perf.txt`
 - C: 共有 PhysBone の追加回収を測った成立 run では、Shinano 0.608 ms、MUMUS_all
   0.248 ms をさらに回収した。共有停止用 Animator layer の可視時代償は Shinano
   +0.007 ms（ノイズ以下）、MUMUS_all +0.053 ms（有意）だった。出典:
-  `D:\GitHub_WorkSpace\VRC\DevProject\MTLabOut\pb_perf.txt` の末尾の成立 run、
+  `D:\GitHub_WorkSpace\VRC\avatar-dev\MTLabOut\pb_perf.txt` の末尾の成立 run、
   `HANDOFF.agent.md`
 - C: `pb_census.txt` は保守判定で停止できる単独所有 PhysBone を Shinano 10/61、
   MUMUS_all 68/89 と数えた。現行ガード追随後は共有分を含む期待値が 28 / 75 である。
   これは安全に止められる chain の母集団確認である。負荷は測っていない。出典:
-  `D:\GitHub_WorkSpace\VRC\DevProject\MTLabOut\pb_census.txt`、`HANDOFF.agent.md`
+  `D:\GitHub_WorkSpace\VRC\avatar-dev\MTLabOut\pb_census.txt`、`HANDOFF.agent.md`
 - U: 上記 2 avatar の差から「1 transform あたり何 ms」と一般化はできない。停止した chain は
   長さ、分岐、collider、設定、job 分割が同時に違う。測定環境も Unity Editor 内の
   SDK simulation であり、VRChat クライアント本体ではない。

@@ -62,7 +62,7 @@ draw calls +360・SetPass +27（168 → 195）を保ち、862,030 頂点を毎�
 - したがって「変換の粒度を分ける」機構を本パッケージが作る必要は無い。AAO が既に持っている。
 
 **ただし、束ねる条件は「アニメーションの出どころ（`AnimationLocation`）の集合が完全に一致すること」**
-である。実測（`DevProject/MTLabOut/merge_gate.txt`、変換なしの構成）では:
+である。実測（`avatar-dev/MTLabOut/merge_gate.txt`、変換なしの構成）では:
 
 | アバター | トグル対象 | 結果 |
 | --- | --- | --- |

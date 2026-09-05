@@ -12,7 +12,7 @@
 ## 実測サマリ (C)
 
 環境: Unity 2022.3.22f1 Play モード、D3D11、skinWeights=FourBones、GPU スキニング設定オン。
-対象: `DevProject/Assets/000_Avatars_Variant/Milfy Variant.prefab` の Body_base(18440頂点)/
+対象: `avatar-dev/Assets/000_Avatars_Variant/Milfy Variant.prefab` の Body_base(18440頂点)/
 Baretop(17567)/ Body(12166)。1024x1024 描画の画素数と色差分(閾値 |Δrgb|>6)で判定。
 
 | テスト | 結果 |
@@ -93,11 +93,11 @@ d4rkAvatarOptimizer が実証済みの方式("an extra bone per original mesh ..
 
 ## 検証ハーネス
 
-`DevProject/Assets/_MTLab/`(Editor/MTLabProbe.cs + MTLabDriver.cs)。結果は
-`DevProject/MTLabOut/`(probe_play.txt と PNG 群)。実行:
+`avatar-dev/Assets/_MTLab/`(Editor/MTLabProbe.cs + MTLabDriver.cs)。結果は
+`avatar-dev/MTLabOut/`(probe_play.txt と PNG 群)。実行:
 
 ```
-Unity.exe -batchmode -projectPath D:\GitHub_WorkSpace\VRC\DevProject -executeMethod MTLabProbe.RunPlay -logFile <log>
+Unity.exe -batchmode -projectPath D:\GitHub_WorkSpace\VRC\avatar-dev -executeMethod MTLabProbe.RunPlay -logFile <log>
 ```
 
 罠: -quit を付けない(Driver が Exit する)/ 編集モードの手動 Camera.Render はスキニングを

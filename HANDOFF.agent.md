@@ -4,7 +4,7 @@ updated: 2026-09-03
 repo: D:/GitHub_WorkSpace/VRC/kie-packages/com.kie.kie-mergeable-toggle (origin = github.com/Kie610/kie-mergeable-toggle)
 work_branch: main
 upstream: origin/main = 6c3f1fc / package.json は 0.8.0-alpha (2026-08-30 に git fetch で実測)。
-  ローカルが 14 コミット先行しており、0.8.1-alpha〜0.8.3-alpha は未 push。
+  ローカルが 17 コミット先行しており (2026-09-05 実測)、0.8.1-alpha〜0.8.3-alpha は未 push。
   0.9.0-alpha (emptyHiddenMaterialSlots) は 89da54a でコミット済み・未 push (2026-09-03)
 base: main@3907539
 goal: 手書きのメッシュトグルを AAO が統合できる隠しかたへ機械的に変換する
@@ -77,7 +77,7 @@ verified:
 - C: 2026-09-02 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath avatar-dev -executeMethod MTVertexPerf.RunG0 / RunG1 (GUI、無人連鎖 run_g_chain.ps1); environment=Unity 2022.3.22f1 GUI/avatar-dev、MUMUS_all Variant を 10 体・追加描画 8 回・near 構図 (塗り面積 14.0〜30.1%)・8 反復・対の差; scope=**初期非表示グループのゲートの効き目 (系列 G)**。G0 (ゲート無し) の d=B−A は 全表示 wall −4.958 / メインスレッド −2.667、半分隠す +4.989 / +0.870、**全隠し +8.042 / +4.087** (すべて有意)。G1 (19 トグル全部を初期非表示にしてゲート付きグループへ) は 全表示 −5.280 / −2.704、半分隠す +5.319 / +0.928 (G0 と同じ)、**全隠し +0.015 / −0.029 で判定不能 (A と区別が付かない。draw calls・可視 SMR も一致)**。MUMUS_all は素体側と統合できる常時表示メッシュが無いので SMR は G0/G1 とも 4 で増えない。最初の G1 はハーネスのゲート模倣が GameObject の active を戻しておらず無効 (退避済み)。結果 avatar-dev/MTLabOut/vertex_perf_G0.txt / vertex_perf_G1.txt (生値 _raw.tsv); counts=passed=96, failed=0, skipped=0, not-run=0
 - C: 2026-09-02 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath avatar-dev -executeMethod MTVertexPerf.RunW1 / RunW2 (GUI、無人連鎖); environment=Unity 2022.3.22f1 GUI/avatar-dev、Shinano_TEST と MUMUS_all を 10 体・追加描画 8 回・near 構図・8 反復、**R (未変換・AAO 無し) / A (AAO のみ) / B (現行変換) / S (B + P2a) の 4 構成を同じ反復で交互に測定**; scope=ユーザー要望の 4 構成比較。表示中は S=B (全差が判定不能)。隠している間は S が B の損を消す: MUMUS_all 半分隠す wall 14.46 → 11.69 (S−B −2.77 有意)・メインスレッド 7.79 → 6.52 (−1.27 有意)、全隠し wall 13.33 → 7.30 (−6.04 有意)・メインスレッド 7.85 → 4.42 (−3.43 有意)、A は 6.95 / 3.79。Shinano は全隠しだけ wall 10.08 → 7.56 (−2.53 有意)。A−R は小さい (Shinano draw call −960、MUMUS 同数)。結果 avatar-dev/MTLabOut/vertex_perf_W1.txt / vertex_perf_W2.txt; counts=passed=192, failed=0, skipped=0, not-run=0
 - C: 2026-09-02 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath avatar-dev -executeMethod MTVertexPerf.RunS0 / RunS1 / RunS2 / RunS3 / RunS4 / RunG0 (GUI、無人連鎖 run_g_chain.ps1); environment=Unity 2022.3.22f1 GUI/avatar-dev、Shinano_TEST と MUMUS_all Variant を 10 体・追加描画 8 回・near 構図・8 反復・対の差、差し替えはハーネスが sharedMaterials を直接書き換えて PPtr カーブを模倣; scope=**案 P2 (隠れたマテリアルスロットの差し替え) の効き目**。P2a (統合スロットのまま差し替え): MUMUS_all で 半分隠す wall +2.969 → **+0.642 (判定不能)**・メインスレッド +0.849 → **−0.578**、全隠し wall +6.190 → **+0.343 (判定不能)**・メインスレッド +3.885 → **+0.600**、全表示は不変 (draw calls 4264 で同数)。Shinano は衣装 7 点が 1 マテリアルなので全隠しだけ改善 (wall +2.734 → +0.211 判定不能)。P2b (トグルごとにマテリアル複製): 全表示の draw call が変換なしと同数になり メインスレッド Shinano +1.801・MUMUS +3.677 と純損、スロット数も統合前と同じ → 却下。結果 avatar-dev/MTLabOut/vertex_perf_S{0..4}.txt / vertex_perf_G0.txt; counts=passed=288, failed=0, skipped=0, not-run=0
-- C: 2026-09-02 — evidence: status=PASS; kind=build; command=Unity.exe -batchmode -quit -projectPath <MA 抜きの使い捨てプロジェクト> -logFile <log>; environment=Unity 2022.3.22f1、avatar-dev-mini の manifest から **Modular Avatar だけを除いた**最小プロジェクト (VRCSDK Avatars/Base + NDMF + 本パッケージ。実体は avatar-dev/Packages を file: 参照); scope=**Modular Avatar が無い環境で本パッケージが成立するかの確認**。Editor の asmdef は `nadena.dev.modular-avatar.core` を無条件に参照しているため、MA 未導入だとアセンブリごとコンパイルされない懸念があった (README と配布文書は MA を「任意」と書いており、`vpmDependencies` にも MA は無い)。**結果は問題なし**: error CS 0 件で、`com.kie.kie-mergeable-toggle.Editor.dll` と `.Runtime.dll` の両方が生成された。Unity は解決できない asmdef 参照を黙って落とし、`MT_MA_PRESENT` が未定義になるので MA 依存のコード (`MenuLabelResolver` のメニュー名解決と `ToggleScanner` の Merge Animator 追跡) だけが外れる。**MA は文書どおり任意で正しい**。ログは使い捨てプロジェクトのため残っていない (再現手順は上記コマンド); counts=passed=1, failed=0, skipped=0, not-run=0
+- C: 2026-09-02 — evidence: status=PASS; kind=build; command=Unity.exe -batchmode -quit -projectPath <MA 抜きの使い捨てプロジェクト> -logFile <log>; environment=Unity 2022.3.22f1、avatar-dev-mini の manifest から **Modular Avatar だけを除いた**最小プロジェクト (VRCSDK Avatars/Base + NDMF + 本パッケージ。実体は avatar-packages/Packages を file: 参照); scope=**Modular Avatar が無い環境で本パッケージが成立するかの確認**。Editor の asmdef は `nadena.dev.modular-avatar.core` を無条件に参照しているため、MA 未導入だとアセンブリごとコンパイルされない懸念があった (README と配布文書は MA を「任意」と書いており、`vpmDependencies` にも MA は無い)。**結果は問題なし**: error CS 0 件で、`com.kie.kie-mergeable-toggle.Editor.dll` と `.Runtime.dll` の両方が生成された。Unity は解決できない asmdef 参照を黙って落とし、`MT_MA_PRESENT` が未定義になるので MA 依存のコード (`MenuLabelResolver` のメニュー名解決と `ToggleScanner` の Merge Animator 追跡) だけが外れる。**MA は文書どおり任意で正しい**。ログは使い捨てプロジェクトのため残っていない (再現手順は上記コマンド); counts=passed=1, failed=0, skipped=0, not-run=0
 - C: 2026-08-29 — evidence: status=PASS; kind=runtime; command=Unity.exe -projectPath avatar-dev -executeMethod MTSlotPerf.Run (GUI); environment=Unity 2022.3.22f1 GUI/avatar-dev、合成メッシュ (頂点 6,321 / 三角形 12,288 / ボーン 1 / 全スロット同一マテリアル)、10 体・240 フレーム × 8 反復・追加描画 32 回/フレーム; scope=**マテリアルスロット単価の実測 (目標 A)**。頂点数・三角形数・ボーン・マテリアルを固定し スロット数だけ 1/2/4/8/16 と変えた。判定は反復ごとの対の差。**スロット 1 個あたり CPU メインスレッド 0.172 ms、レンダースレッド 0.198 ms** (10 体・33 描画あたり。N=4〜16 で傾きが一定)。1 体・1 描画あたりに直すと 0.52 / 0.60 µs。SetPass Calls は ±0 (同一マテリアルのため)、draw calls は 990/スロットで分散ゼロ。wall frame time は N=16 でのみ有意 (0.056 ms/スロット) — CPU 増分がフレーム下限 約 7 ms に隠れるため。**本拡張のスロット削減 13→5 が説明するのは、run6 で観測した全表示時のメインスレッド短縮 (1 描画あたり 0.137 ms/10 体) のうち約 31% で、残り約 7 割は SMR 11→2 のレンダラー個数削減に由来する**。結果は avatar-dev/MTLabOut/slot_perf_run2_final.txt (生値 slot_perf_raw_run2_final.tsv); counts=passed=40, failed=0, skipped=0, not-run=0
 - C: 2026-08-29 — evidence: status=PASS(方法論); kind=runtime; command=同上を 3 回 (03:07 / 04:06 / 14:01); environment=同上; scope=**判定方法の欠陥と修正**。反復 3 回で「A の平均と B の平均の差」を見る方式だと、ラン間の機体状態のドリフト (同条件で wall 12.19 ms と 8.75 ms) が差へ混ざり、全表示の結論が run1 有意 / run2 判定不能 と割れた。A/B は同一反復で隣接して測っているので、**反復ごとの対の差を集める方式へ変えたところ 8 反復で全条件の符号が揃った**。以後の負荷比較はすべて対の差で判定する; counts=passed=3, failed=0, skipped=0, not-run=0
 
@@ -215,7 +215,7 @@ not-run:
   ただし束ねる条件は AnimationLocation 集合の完全一致で、実測では Shinano 9 件・
   MUMUS_all 18 件が**全部 ORPHAN** (`MTLabOut/merge_gate.txt`)。1 トグル 1 メッシュの構成では
   発火しないので、除外は原則「そのメッシュはレンダラー 1 個として残る」を意味する。
-  (4) 収支を決める変数は**トグル数ではなく隠した頂点数**。「トグルの約 17%」は誤り
+  (4) 収支を決める変数は**隠した頂点数**である。「トグルの約 17%」は誤り
   (半分隠す条件はトグル数 50% でも頂点数 78% を隠していた)。正しくは隠せる頂点の約 26%、
   1 体あたり 11,575 頂点。1 トグル単位では、表示されている時間の割合 p に対して
   `頂点数 < p/(1-p) × 12,900` なら変換して得。
@@ -256,7 +256,7 @@ not-run:
   **この損を生んでいるのは、統合メッシュが常に持つレンダラーとマテリアルスロットである**
   (全隠しでは A の生存レンダラー 11-9=2 と B(k=6) の 8-6=2 が同数になり、差はスロット 1 個ぶん程度)。
   (3) **減るのは wall (GPU 側) だけ** — 全隠しの wall が +2.458 → +1.555 → +0.441 と単調に減る。
-  統合メッシュが毎描画シェーディングする頂点が減るぶん効く。
+  統合メッシュが毎描画シェーディングする頂点が減るため、GPU 側の時間だけが短くなる。
   (4) **全表示の得は両指標とも単調に失われる** (メインスレッド -1.390 → -0.985 → -0.352 → -0.003)。
   つまり**メインスレッドで見ると除外は純損**。分岐点も k でほぼ動かない (91.1/91.5/88.4/94.7%)。
   → [U10] の D2 を「除外を積極的に勧めない。GPU がボトルネックと分かっている場合の逃げ道」へ弱めた。
@@ -274,7 +274,8 @@ not-run:
   AAO の統合後 (Optimizing、AAO の後ろ) に、統合メッシュの各スロットについて「頂点を覆う隠蔽シェイプ
   (所有トグル) が全部隠れたら」マテリアルを描画パスの無い `MT_Empty` へ PPtr カーブで差し替える。
   所有トグルが 1 つならそのクリップへ、複数なら AAP の AND ゲートで。SMR もスロット数も増えない。
-  効く粒度はマテリアルの共有単位 (Shinano は衣装 7 点が 1 マテリアルなので全隠しでしか効かない。
+  差し替えの粒度はマテリアルの共有単位になる (Shinano は衣装 7 点が 1 マテリアルなので、
+  全隠しの状態でしか差し替えが成立しない。
   MUMUS_all は 16 スロット中 11 が差し替え対象で、半分隠す状態の損 wall +5.0 → +0.6 (判定不能)、
   全隠し +8.0 → +0.3 (判定不能)、メインスレッド +4.1 → +0.6)。
   当初「スロット単価 0.5 µs」で却下していたのは算術の前提 (1 パス) が誤りで、lilToon は約 3 パス。

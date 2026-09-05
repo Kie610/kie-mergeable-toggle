@@ -253,7 +253,7 @@ Play (Av3Emulator) と PC 実機でも、トグル往復・初期非表示・カ
 問題が無いことを確認済み (2026-08-25)。
 
 **Quest (モバイル GPU) でも消えることを実機で確認済み (2026-08-25)。**
-検証は `DevProjectQuest` で Milfy_QuestMobile へ検証用ボックスを足したアバターを
+検証は `avatar-dev-quest` で Milfy_QuestMobile へ検証用ボックスを足したアバターを
 ビルドし、トグル対象が消えて常時表示のメッシュが無傷であることを目視で確かめた。
 遠近のカリングと Performance ランク表示は未報告。
 
@@ -325,4 +325,4 @@ blendshape で任意ポーズの縮退を満たすには三角形の3頂点が�
 
 - AAO の `MeshInfo2` は `-nographics` に非対応。AAO を通すベンチは `-batchmode` のみで
   走らせる
-- 計測足場は `DevProject/Assets/_MTBench/Editor/MTBench.cs` (`BenchMixedAAO` が上表を出す)
+- 計測足場は `avatar-dev/Assets/_MTBench/Editor/MTBench.cs` (`BenchMixedAAO` が上表を出す)

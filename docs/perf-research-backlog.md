@@ -15,7 +15,7 @@
 
 ## 1. 既に分かっていること（起点）
 
-2026-08-29 の実測（`DevProject/MTLabOut/vertex_perf_run6_final.txt`、HANDOFF の verified）。
+2026-08-29 の実測（`avatar-dev/MTLabOut/vertex_perf_run6_final.txt`、HANDOFF の verified）。
 Shinano_TEST・10 体・240 フレーム × **8 反復**、Unity 2022.3.22f1 / AAO 1.9.17。
 判定は反復ごとの対の差（`d = B - A`）で行い、全 6 条件で符号が揃った。
 
@@ -70,11 +70,11 @@ Shinano_TEST・10 体・240 フレーム × **8 反復**、Unity 2022.3.22f1 / A
 
 ### 結果（2026-08-29 実測。目標 A は完了）
 
-`DevProject/Assets/_MTLab/Editor/MTSlotPerf.cs` で、頂点数（6,321）・三角形数（12,288）・
+`avatar-dev/Assets/_MTLab/Editor/MTSlotPerf.cs` で、頂点数（6,321）・三角形数（12,288）・
 ボーン数（1）・マテリアル（全スロット同一）を固定し、**スロット数だけ**を
 1 / 2 / 4 / 8 / 16 と変えた系列を 10 体・8 反復で測った。判定は反復ごとの対の差。
 1 フレームあたり 33 描画（追加描画 32 回）。結果は
-`DevProject/MTLabOut/slot_perf_run2_final.txt`。
+`avatar-dev/MTLabOut/slot_perf_run2_final.txt`。
 
 | 指標 | スロット 1 個あたりの傾き | 判定 |
 | --- | --- | --- |
@@ -100,7 +100,7 @@ wall frame time が N=8 以下で判定不能なのは、CPU の増分がフレ�
 シェーダの重さで変わり得る（未測定）。
 
 **測りかた**（記録として残す。ハーネスの作りは
-`DevProject/MTLabOut/vertex_perf_resume_prompt.md` の環境メモを読む）:
+`avatar-dev/MTLabOut/vertex_perf_resume_prompt.md` の環境メモを読む）:
 
 - 同一メッシュに対しスロット数だけを変えた系列（1 / 2 / 4 / 8 / 16 スロット）を作り、
   頂点数・ポリゴン数・テクスチャを固定して 10 体で測る
@@ -215,7 +215,7 @@ lilToon 2.3.4、`C: 20` / `A: 2` / `U: 1`）。コードから数えた仕事量
 - 本パッケージの `enabled=false` による停止は**実行時 CPU には効くが Performance Rank には効かない**
   （VRChat は無効なコンポーネントもランクへ数える）
 - 既存実測: Shinano の 35 transforms を止めて `PhysBoneJob` −0.649 ms、
-  MUMUS_all の 358 transforms を止めて −3.934 ms（`DevProject/MTLabOut/pb_perf.txt`）
+  MUMUS_all の 358 transforms を止めて −3.934 ms（`avatar-dev/MTLabOut/pb_perf.txt`）
 
 **残っているのは実測**。同文書の「## 実測の計画」に沿って、transforms 総数・コライダー数・
 `Allow Collision` の有無を振った系列を、対の差の作法で測る。
@@ -256,7 +256,7 @@ GPU バウンド）の産物ではないか。
 ### 結果（2026-08-30 実測。目標 E は完了）
 
 3 構成を追加で測り、run6 と合わせて **2×2 の要因計画**（塗り面積 × 追加描画回数）にした。
-ハーネスは `DevProject/Assets/_MTLab/Editor/MTVertexPerf.cs`（メニュー
+ハーネスは `avatar-dev/Assets/_MTLab/Editor/MTVertexPerf.cs`（メニュー
 `Tools/MTLab/Vertex perf E1 / E2 / E3`）。判定は §9 の作法（反復ごとの対の差、8 反復）。
 4 構成とも 48/48 行・visibility failure 0・フラスタム内 10/10。
 
@@ -329,7 +329,7 @@ near 構図は wall のばらつきが run6（noise 0.319）より一桁大き�
 **問い**: 「普段隠すトグルは変換しない」という運用は、実際に収支をどれだけ戻すか。
 戻る量が小さければ、利用者へ勧める意味が無い。
 
-前提（実測済み・`DevProject/MTLabOut/merge_gate.txt`）: 除外したトグルは AAO の
+前提（実測済み・`avatar-dev/MTLabOut/merge_gate.txt`）: 除外したトグルは AAO の
 `Activeness.Animating` のキーへ入るが、**Shinano で 9 件・MUMUS_all で 18 件すべてが
 ORPHAN**（single-member category）で統合されない。つまり除外＝レンダラー 1 個が戻る。
 1 トグルの下に 2 つ以上の SMR がある構成でだけ AAO が束ねるが、この 2 体には無い。
@@ -354,7 +354,7 @@ Shinano_TEST で、頂点数の大きい順に k 件を `excludedPaths` へ入�
 E3 と同じ構図（near・間隔 0.35m・マージン 1.02・追加描画 8 回）で測った。
 ハーネスは `Tools/MTLab/Vertex perf F k=0 / k=3 / k=6 / k=9`。4 本とも 48/48 行・
 visibility failure 0・フラスタム内 10/10・塗り面積 15.8〜20.4%。
-結果は `DevProject/MTLabOut/vertex_perf_F_k{0,3,6,9}.txt`。
+結果は `avatar-dev/MTLabOut/vertex_perf_F_k{0,3,6,9}.txt`。
 
 除外したトグル（頂点数降順）: `Cloth_sweater` 16,425 / `Cloth_skirt` 7,325 /
 `Cloth_dress` 7,182 ← ここまでが k=3。`Cloth_boots` 4,102 / `Cloth_tights` 3,982 /
@@ -484,4 +484,4 @@ PC については決着している。project-default パス（`gpuSkinning=Tru
 - 画角の証拠は計測カメラ自身の 2 枚レンダリング差分で採る
   （`Renderer.isVisible` は Scene ビューのカメラでも true になるため使わない）
 - 環境の落とし穴（batchmode 不可・Play を抜けると static が消える・vSync とアスペクトが
-  Play へ持ち越されない）は `DevProject/MTLabOut/vertex_perf_resume_prompt.md` にまとめてある
+  Play へ持ち越されない）は `avatar-dev/MTLabOut/vertex_perf_resume_prompt.md` にまとめてある

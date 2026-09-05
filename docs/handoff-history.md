@@ -17,7 +17,7 @@
 ### パッケージ確定・リネーム
 - 名称確定: **com.kie.kie-mergeable-toggle / "Mergeable Toggle"** (namespace `Kie.MergeableToggle`)
 - `Packages\com.kie.hide-by-scale` → `Packages\com.kie.kie-mergeable-toggle` へ移動、
-  package.json / asmdef / C# / README / CHANGELOG / DevProject manifest /
+  package.json / asmdef / C# / README / CHANGELOG / avatar-dev manifest /
   vpm-listing の `githubRepos`(`Kie610/kie-mergeable-toggle`)をすべて更新済み
 - version: `0.1.0-beta.1`(リリース準備値)。依存: com.vrchat.avatars ^3.7.0 /
   nadena.dev.ndmf ^1.14.0(**MA 依存は削除した**)
@@ -53,7 +53,7 @@
      (これで AAO CategorizationKey が揃い自動統合が効く)
 
 ### E2E 実測結果(受け入れ条件1クリア)
-検証: `DevProject\Assets\Editor\MergeableToggleE2E.cs`(ワンショット、
+検証: `avatar-dev\Assets\Editor\MergeableToggleE2E.cs`(ワンショット、
 プロジェクトルートの `mt_e2e_request.txt` で駆動、結果は `mt_e2e_result.txt`)
 - **MUMUS_all**: SMR 21→4、ボーン 453→933、ポリゴン不変、
   NaN クリップ 20、m_IsActive バインディング 48→5
@@ -72,7 +72,7 @@
    MA NaNimation と AAO の非互換)
 
 ## 環境メモ
-- Unity 2022.3.22f1 が DevProject を開いたまま(PID は変動する)。
+- Unity 2022.3.22f1 が avatar-dev を開いたまま(PID は変動する)。
   バッチモード不可。再コンパイルはウィンドウフォーカスで誘発、検証は
   `Library/ScriptAssemblies` と Editor.log の `error CS` で確認
 - unity-mcp (CoplayDev) セットアップ作業中 → 完了後はそちらで直接操作可
