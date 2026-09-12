@@ -81,3 +81,9 @@ Unity の検証は `../../avatar-dev` を開いて行う。バッチ実行の前
 - 現在の状態は `HANDOFF.agent.md` が正本。実質的な進捗・判断・検証・blocker が変わったら更新する
 - 過去の作業メモは `docs/handoff-history.md` へ原文のまま残す。上書きしない
 - 作業メモをワークスペース直下（`../../`）へ置かない
+
+## Documentation routing
+
+- `README.md` is the user-facing usage and contract explanation; `CHANGELOG.md` is release history.
+- `HANDOFF.agent.md` is the current state, decisions, evidence, and unresolved items. `HANDOFF.md` is the links index. `docs/handoff-history.md` preserves prior handoff text and migration records. `docs/agent-appendix.md` contains task-specific reading conditions and update responsibilities.
+- Before handoff or document maintenance, read `docs/agent-appendix.md`. Keep the AAO merge invariants, finite `1e6` delta rationale, non-destructive mesh replacement, and no-polygon-change invariant in this file.
